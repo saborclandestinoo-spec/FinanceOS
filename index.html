@@ -1052,10 +1052,7 @@ svg { display: block; }
         <input class="form-input" id="c-preco" type="number" placeholder="0">
       </div>
     </div>
-    <div class="form-group">
-      <label class="form-label">Preço Atual (R$)</label>
-      <input class="form-input" id="c-atual" type="number" placeholder="0">
-    </div>
+    <div id="c-fetch-status" style="font-size:12px;color:var(--text-3);padding:4px 0">O preço atual será buscado automaticamente via CoinGecko.</div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="document.getElementById('modalCripto').style.display='none'">Cancelar</button>
       <button class="btn btn-primary" onclick="saveCripto()">Adicionar</button>
@@ -1237,8 +1234,8 @@ async function bootApp() {
     if (avatarEl) avatarEl.textContent = (currentUser.email || 'U')[0].toUpperCase();
   }
   await loadState();
-  if (!state.transactions.length) seedData();
   renderAll();
+  if (state.cripto.length) fetchCriptoPrices();
 }
 
 async function doLogout() {
@@ -1341,51 +1338,10 @@ function saveState() {
 
 // ── SEED DATA ──
 function seedData() {
+  // Seed only minimal data — no fake bolsa/cripto/imoveis/bancos
   if (state.transactions.length) return;
-  const now = new Date();
-  const m = (d) => { const dt = new Date(now); dt.setDate(dt.getDate() - d); return dt.toISOString().split('T')[0]; };
-  state.transactions = [
-    { id:1, tipo:'income',  desc:'Salário',           valor:8500,  data:m(2),  cat:'Salário' },
-    { id:2, tipo:'expense', desc:'Supermercado',       valor:420,   data:m(3),  cat:'Alimentação' },
-    { id:3, tipo:'expense', desc:'Conta de Luz',       valor:180,   data:m(5),  cat:'Moradia' },
-    { id:4, tipo:'income',  desc:'Freelance Design',   valor:2200,  data:m(6),  cat:'Freelance' },
-    { id:5, tipo:'expense', desc:'Combustível',        valor:280,   data:m(7),  cat:'Transporte' },
-    { id:6, tipo:'expense', desc:'Academia',           valor:99,    data:m(8),  cat:'Saúde' },
-    { id:7, tipo:'expense', desc:'Netflix / Streaming',valor:55,    data:m(10), cat:'Lazer' },
-    { id:8, tipo:'income',  desc:'Dividendos PETR4',   valor:340,   data:m(12), cat:'Outros' },
-    { id:9, tipo:'expense', desc:'Farmácia',           valor:95,    data:m(14), cat:'Saúde' },
-    { id:10,tipo:'expense', desc:'Restaurante',        valor:162,   data:m(15), cat:'Alimentação' },
-  ];
-  state.bolsa = [
-    { ticker:'PETR4', nome:'Petrobras',    qtd:200, preco:28.50, atual:31.20 },
-    { ticker:'VALE3', nome:'Vale S.A.',    qtd:100, preco:68.00, atual:72.45 },
-    { ticker:'ITUB4', nome:'Itaú Unibanco',qtd:150, preco:35.20, atual:33.90 },
-    { ticker:'WEGE3', nome:'WEG S.A.',     qtd:50,  preco:42.10, atual:48.75 },
-    { ticker:'BBAS3', nome:'Banco do Brasil',qtd:120,preco:55.80, atual:58.20 },
-  ];
-  state.cripto = [
-    { symbol:'BTC', nome:'Bitcoin',  qtd:0.12,  preco:280000, atual:315000, color:'#F7931A' },
-    { symbol:'ETH', nome:'Ethereum', qtd:1.5,   preco:12000,  atual:15800,  color:'#627EEA' },
-    { symbol:'SOL', nome:'Solana',   qtd:8,     preco:650,    atual:820,    color:'#9945FF' },
-    { symbol:'BNB', nome:'BNB',      qtd:2,     preco:1800,   atual:2050,   color:'#F3BA2F' },
-    { symbol:'ADA', nome:'Cardano',  qtd:500,   preco:4.2,    atual:3.8,    color:'#0033AD' },
-    { symbol:'MATIC',nome:'Polygon', qtd:300,   preco:3.5,    atual:4.1,    color:'#8247E5' },
-  ];
-  state.imoveis = [
-    { nome:'Apartamento Centro', addr:'Av. Paulista, 1000 - SP', valor:650000, aluguel:3200, tipo:'🏠' },
-    { nome:'Sala Comercial',     addr:'Rua XV, 450 - Curitiba', valor:280000, aluguel:1800, tipo:'🏢' },
-  ];
-  state.metas = [
-    { desc:'Reserva de Emergência', alvo:50000, atual:32000, prazo:'2026-12-31' },
-    { desc:'Viagem Europa',         alvo:25000, atual:8500,  prazo:'2027-06-30' },
-    { desc:'Entrada Imóvel',        alvo:120000,atual:45000, prazo:'2028-01-01' },
-  ];
-  state.bancos = [
-    { nome:'Nubank',       agencia:'0001', tipo:'Digital',    saldo:12500, cor:'#6C63FF' },
-    { nome:'Itaú',         agencia:'0320', tipo:'Corrente',   saldo:8200,  cor:'#F7931A' },
-    { nome:'XP Investimentos', agencia:'0001', tipo:'Investimento', saldo:45000, cor:'#059669' },
-  ];
-  saveState();
+  // state starts empty for all investment arrays
+  // no saveState here — let user add their own real data
 }
 
 // ── NAVIGATION ──
@@ -1516,7 +1472,7 @@ function renderPage(id) {
   if (id === 'dashboard') renderDashboard();
   if (id === 'transacoes') renderTxPage();
   if (id === 'bolsa') renderBolsa();
-  if (id === 'cripto') renderCripto();
+  if (id === 'cripto') { renderCripto(); fetchCriptoPrices(); }
   if (id === 'imoveis') renderImoveis();
   if (id === 'bancos') renderBancos();
   if (id === 'orcamento') renderOrcamento();
@@ -2045,20 +2001,64 @@ function saveBolsa() {
   renderBolsa();
 }
 
+// ── COINGECKO PRICE FETCH ──
+const CG_IDS = {
+  BTC:'bitcoin', ETH:'ethereum', SOL:'solana', BNB:'binancecoin',
+  ADA:'cardano', DOT:'polkadot', MATIC:'matic-network', AVAX:'avalanche-2',
+  LINK:'chainlink', UNI:'uniswap', XRP:'ripple', DOGE:'dogecoin',
+  LTC:'litecoin', ATOM:'cosmos', ALGO:'algorand', FTM:'fantom',
+  NEAR:'near', APT:'aptos', ARB:'arbitrum', OP:'optimism',
+};
+
+async function fetchCriptoPrices() {
+  if (!state.cripto.length) return;
+  const ids = state.cripto.map(c => CG_IDS[c.symbol] || c.symbol.toLowerCase()).join(',');
+  showSyncBadge('↑ cotações…');
+  try {
+    const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=brl`);
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    let updated = false;
+    state.cripto = state.cripto.map(c => {
+      const cgId = CG_IDS[c.symbol] || c.symbol.toLowerCase();
+      const price = data[cgId]?.brl;
+      if (price) { updated = true; return { ...c, atual: price }; }
+      return c;
+    });
+    if (updated) {
+      saveState();
+      renderCripto();
+      renderDashboard();
+      showSyncBadge('☁ cotações OK');
+    }
+  } catch(e) {
+    showSyncBadge('⚠ cotação falhou', false);
+    console.warn('CoinGecko error', e);
+  }
+}
+
+// Auto-refresh every 60s when on cripto page
+setInterval(() => {
+  if (document.getElementById('page-cripto')?.classList.contains('active') && state.cripto.length) {
+    fetchCriptoPrices();
+  }
+}, 60000);
+
 function saveCripto() {
   const symbol=document.getElementById('c-symbol').value.trim().toUpperCase();
   const nome=document.getElementById('c-nome').value.trim();
   const qtd=parseFloat(document.getElementById('c-qtd').value);
   const preco=parseFloat(document.getElementById('c-preco').value);
-  const atual=parseFloat(document.getElementById('c-atual').value);
-  if(!symbol||!nome||!qtd||!preco||!atual){alert('Preencha todos os campos');return;}
+  if(!symbol||!nome||!qtd||!preco){alert('Preencha Símbolo, Nome, Quantidade e Preço Médio');return;}
   const colors=['#F7931A','#627EEA','#9945FF','#F3BA2F','#0033AD','#8247E5','#E84142','#26A17B'];
   const color=colors[state.cripto.length%colors.length];
-  state.cripto.push({ symbol, nome, qtd, preco, atual, color });
+  state.cripto.push({ symbol, nome, qtd, preco, atual: preco, color }); // atual=preco until fetch
   saveState();
   document.getElementById('modalCripto').style.display='none';
-  ['c-symbol','c-nome','c-qtd','c-preco','c-atual'].forEach(id=>document.getElementById(id).value='');
+  ['c-symbol','c-nome','c-qtd','c-preco'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('c-fetch-status').textContent = 'O preço atual será buscado automaticamente via CoinGecko.';
   renderCripto();
+  fetchCriptoPrices(); // fetch immediately after add
 }
 
 function saveBanco() {
