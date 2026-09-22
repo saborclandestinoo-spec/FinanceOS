@@ -83,6 +83,10 @@
 .auth-btn:hover { opacity: 0.9; }
 .auth-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* ── TX BULK ── */
+.tx-selected { background: var(--accent-dim) !important; }
+.tx-selected:hover { background: rgba(108,99,255,0.14) !important; }
+
 /* ── TX CONTEXT MENU ── */
 .tx-menu {
   position: fixed; z-index: 1000;
@@ -768,13 +772,38 @@ svg { display: block; }
       <!-- ── TRANSAÇÕES ── -->
       <div class="page" id="page-transacoes">
         <div class="card" style="margin-bottom:20px">
-          <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
             <input class="form-input" style="flex:1;min-width:180px" placeholder="Buscar transação..." id="txSearch" oninput="renderTxPage()">
             <select class="form-input" style="width:140px" id="txFilter" onchange="renderTxPage()">
               <option value="">Todos</option>
               <option value="income">Receitas</option>
               <option value="expense">Despesas</option>
             </select>
+            <button class="btn btn-ghost" id="bulkToggleBtn" onclick="toggleBulkMode()" style="white-space:nowrap">☑ Selecionar</button>
+          </div>
+          <!-- bulk action bar -->
+          <div id="bulkBar" style="display:none;margin-top:12px;padding:10px 12px;background:var(--accent-dim);border-radius:8px;display:none;align-items:center;gap:10px;flex-wrap:wrap">
+            <span id="bulkCount" style="font-size:13px;font-weight:600;color:var(--accent)">0 selecionados</span>
+            <div style="flex:1"></div>
+            <div class="form-group" style="margin:0;display:flex;align-items:center;gap:8px">
+              <label style="font-size:12px;color:var(--text-2);white-space:nowrap">Categoria:</label>
+              <select class="form-input" id="bulkCat" style="width:130px;padding:6px 10px">
+                <option value="">— manter —</option>
+                <option>Salário</option><option>Freelance</option><option>Alimentação</option>
+                <option>Transporte</option><option>Moradia</option><option>Saúde</option>
+                <option>Lazer</option><option>Educação</option><option>Outros</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0;display:flex;align-items:center;gap:8px">
+              <label style="font-size:12px;color:var(--text-2);white-space:nowrap">Tipo:</label>
+              <select class="form-input" id="bulkTipo" style="width:110px;padding:6px 10px">
+                <option value="">— manter —</option>
+                <option value="income">Receita</option>
+                <option value="expense">Despesa</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" onclick="applyBulkEdit()" style="padding:6px 14px;font-size:13px">Aplicar</button>
+            <button class="btn" onclick="bulkDelete()" style="padding:6px 14px;font-size:13px;background:var(--red-dim);color:var(--red);border:1px solid rgba(220,38,38,0.2)">Excluir</button>
           </div>
         </div>
         <div class="card">
@@ -1450,11 +1479,27 @@ const catColors = {
 };
 
 // ── RENDER TX ITEM ──
+let _bulkMode = false;
+let _bulkSelected = new Set();
+
 function txItemHTML(t) {
   const emoji = catEmoji[t.cat] || '📦';
   const cls = t.tipo === 'income' ? 'income' : 'expense';
   const sign = t.tipo === 'income' ? '+' : '-';
-  return `<div class="tx-item" onclick="openTxMenu(event,${t.id})" style="cursor:pointer;position:relative">
+  const checked = _bulkSelected.has(t.id);
+  if (_bulkMode) {
+    return `<div class="tx-item ${checked ? 'tx-selected' : ''}" onclick="toggleBulkSelect(${t.id})" style="cursor:pointer">
+      <input type="checkbox" ${checked ? 'checked' : ''} onclick="event.stopPropagation();toggleBulkSelect(${t.id})" style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer;flex-shrink:0">
+      <div class="tx-icon-wrap" style="background:${t.tipo==='income'?'var(--emerald-dim)':'var(--red-dim)'}">${emoji}</div>
+      <div class="tx-info">
+        <div class="tx-name">${t.desc}</div>
+        <div class="tx-cat">${t.cat}</div>
+      </div>
+      <div class="tx-date">${fmtDate(t.data)}</div>
+      <div class="tx-amount ${cls}">${sign} ${fmtBRL(t.valor)}</div>
+    </div>`;
+  }
+  return `<div class="tx-item" onclick="editTx(${t.id})" style="cursor:pointer">
     <div class="tx-icon-wrap" style="background:${t.tipo==='income'?'var(--emerald-dim)':'var(--red-dim)'}">${emoji}</div>
     <div class="tx-info">
       <div class="tx-name">${t.desc}</div>
@@ -1462,6 +1507,7 @@ function txItemHTML(t) {
     </div>
     <div class="tx-date">${fmtDate(t.data)}</div>
     <div class="tx-amount ${cls}">${sign} ${fmtBRL(t.valor)}</div>
+    <button onclick="event.stopPropagation();deleteTx(${t.id})" title="Excluir" style="margin-left:8px;background:none;border:none;cursor:pointer;color:var(--text-3);padding:4px 6px;border-radius:6px;font-size:14px;line-height:1;transition:color 0.15s,background 0.15s" onmouseenter="this.style.color='var(--red)';this.style.background='var(--red-dim)'" onmouseleave="this.style.color='var(--text-3)';this.style.background='none'">✕</button>
   </div>`;
 }
 
@@ -1869,35 +1915,49 @@ function setChartRange(r, btn) {
 }
 
 // ── MODALS ──
-// ── TX CONTEXT MENU ──
-let _activeTxMenu = null;
-function closeTxMenu() {
-  if (_activeTxMenu) { _activeTxMenu.remove(); _activeTxMenu = null; }
-}
-document.addEventListener('click', closeTxMenu);
 
-function openTxMenu(e, txId) {
-  e.stopPropagation();
-  closeTxMenu();
-  const menu = document.createElement('div');
-  menu.className = 'tx-menu';
-  menu.innerHTML = `
-    <div class="tx-menu-item" onclick="editTx(${txId})">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-      Editar
-    </div>
-    <div class="tx-menu-item danger" onclick="deleteTx(${txId})">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
-      Excluir
-    </div>
-  `;
-  // position near click
-  const x = Math.min(e.clientX, window.innerWidth - 180);
-  const y = Math.min(e.clientY + 4, window.innerHeight - 100);
-  menu.style.cssText = `left:${x}px;top:${y}px`;
-  document.body.appendChild(menu);
-  _activeTxMenu = menu;
-  menu.addEventListener('click', e => e.stopPropagation());
+// ── BULK MODE ──
+function toggleBulkMode() {
+  _bulkMode = !_bulkMode;
+  _bulkSelected.clear();
+  const bar = document.getElementById('bulkBar');
+  const btn = document.getElementById('bulkToggleBtn');
+  bar.style.display = _bulkMode ? 'flex' : 'none';
+  btn.textContent = _bulkMode ? '✕ Cancelar' : '☑ Selecionar';
+  btn.style.color = _bulkMode ? 'var(--red)' : '';
+  renderTxPage();
+}
+
+function toggleBulkSelect(txId) {
+  if (_bulkSelected.has(txId)) _bulkSelected.delete(txId);
+  else _bulkSelected.add(txId);
+  document.getElementById('bulkCount').textContent = `${_bulkSelected.size} selecionado${_bulkSelected.size !== 1 ? 's' : ''}`;
+  renderTxPage();
+}
+
+function applyBulkEdit() {
+  if (!_bulkSelected.size) return;
+  const cat = document.getElementById('bulkCat').value;
+  const tipo = document.getElementById('bulkTipo').value;
+  state.transactions = state.transactions.map(t => {
+    if (!_bulkSelected.has(t.id)) return t;
+    return { ...t, ...(cat ? { cat } : {}), ...(tipo ? { tipo } : {}) };
+  });
+  saveState();
+  _bulkSelected.clear();
+  document.getElementById('bulkCount').textContent = '0 selecionados';
+  renderDashboard();
+  renderTxPage();
+}
+
+function bulkDelete() {
+  if (!_bulkSelected.size) return;
+  state.transactions = state.transactions.filter(t => !_bulkSelected.has(t.id));
+  saveState();
+  _bulkSelected.clear();
+  document.getElementById('bulkCount').textContent = '0 selecionados';
+  renderDashboard();
+  renderTxPage();
 }
 
 let _editingTxId = null;
