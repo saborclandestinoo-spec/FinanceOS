@@ -610,8 +610,8 @@ svg { display: block; }
       </div>
       <div class="nav-item" data-page="transacoes">
         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
-        Transações
-        <span class="nav-badge" id="txBadge">3</span>
+        Lançamentos
+        <span class="nav-badge" id="txBadge"></span>
       </div>
     </div>
 
@@ -779,46 +779,89 @@ svg { display: block; }
         </div>
       </div>
 
-      <!-- ── TRANSAÇÕES ── -->
+      <!-- ── LANÇAMENTOS ── -->
       <div class="page" id="page-transacoes">
-        <div class="card" style="margin-bottom:20px">
-          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-            <input class="form-input" style="flex:1;min-width:180px" placeholder="Buscar transação..." id="txSearch" oninput="renderTxPage()">
-            <select class="form-input" style="width:140px" id="txFilter" onchange="renderTxPage()">
-              <option value="">Todos</option>
-              <option value="income">Receitas</option>
-              <option value="expense">Despesas</option>
-            </select>
-            <button class="btn btn-ghost" id="bulkToggleBtn" onclick="toggleBulkMode()" style="white-space:nowrap">☑ Selecionar</button>
+        <!-- Header: título + botão Adicionar -->
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+          <div>
+            <div style="font-size:22px;font-weight:800;color:var(--text)">Lançamentos</div>
+            <div style="font-size:13px;color:var(--text-3)" id="txPeriodoLabel"></div>
           </div>
-          <!-- bulk action bar -->
-          <div id="bulkBar" style="display:none;margin-top:12px;padding:10px 12px;background:var(--accent-dim);border-radius:8px;display:none;align-items:center;gap:10px;flex-wrap:wrap">
-            <span id="bulkCount" style="font-size:13px;font-weight:600;color:var(--accent)">0 selecionados</span>
-            <div style="flex:1"></div>
-            <div class="form-group" style="margin:0;display:flex;align-items:center;gap:8px">
-              <label style="font-size:12px;color:var(--text-2);white-space:nowrap">Categoria:</label>
-              <select class="form-input" id="bulkCat" style="width:130px;padding:6px 10px">
-                <option value="">— manter —</option>
-                <option>Salário</option><option>Freelance</option><option>Alimentação</option>
-                <option>Transporte</option><option>Moradia</option><option>Saúde</option>
-                <option>Lazer</option><option>Educação</option><option>Outros</option>
-              </select>
+          <div style="display:flex;gap:8px;align-items:center;position:relative">
+            <div style="position:relative">
+              <button onclick="txToggleAddMenu()" id="txAddBtn" class="btn btn-primary" style="display:flex;align-items:center;gap:6px;padding:8px 18px;font-size:14px;font-weight:600">
+                + Adicionar <span id="txAddArrow">▼</span>
+              </button>
+              <div id="txAddMenu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:170px;z-index:200;overflow:hidden">
+                <div onclick="openModalLanc('expense')" style="display:flex;align-items:center;gap:10px;padding:13px 18px;cursor:pointer;font-size:14px;color:var(--red);font-weight:600" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''">
+                  <span style="font-size:18px">−</span> Despesa
+                </div>
+                <div onclick="openModalLanc('income')" style="display:flex;align-items:center;gap:10px;padding:13px 18px;cursor:pointer;font-size:14px;color:var(--emerald);font-weight:600" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''">
+                  <span style="font-size:18px">+</span> Receita
+                </div>
+                <div onclick="openModalLanc('transfer')" style="display:flex;align-items:center;gap:10px;padding:13px 18px;cursor:pointer;font-size:14px;color:var(--accent);font-weight:600" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''">
+                  <span style="font-size:18px">⇄</span> Transferência
+                </div>
+              </div>
             </div>
-            <div class="form-group" style="margin:0;display:flex;align-items:center;gap:8px">
-              <label style="font-size:12px;color:var(--text-2);white-space:nowrap">Tipo:</label>
-              <select class="form-input" id="bulkTipo" style="width:110px;padding:6px 10px">
-                <option value="">— manter —</option>
-                <option value="income">Receita</option>
-                <option value="expense">Despesa</option>
-              </select>
-            </div>
-            <button class="btn btn-primary" onclick="applyBulkEdit()" style="padding:6px 14px;font-size:13px">Aplicar</button>
-            <button class="btn" onclick="bulkDelete()" style="padding:6px 14px;font-size:13px;background:var(--red-dim);color:var(--red);border:1px solid rgba(220,38,38,0.2)">Excluir</button>
           </div>
         </div>
-        <div class="card">
-          <div class="tx-list" id="txPageList"></div>
-          <div id="txEmpty" style="text-align:center;padding:32px;color:var(--text-2);display:none">Nenhuma transação encontrada</div>
+
+        <!-- KPI cards: Todos / Receitas / Despesas / Transferências -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px" id="txKpiGrid">
+          <div class="card" id="txKpi-todos" onclick="txSetFilter('')" style="cursor:pointer;background:#111;border-color:#111;padding:18px 20px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <div style="font-size:12px;font-weight:600;color:#fff;opacity:.7">Todos</div>
+              <span id="txKpi-todos-count" style="font-size:11px;font-weight:700;color:#fff;opacity:.6;background:rgba(255,255,255,.15);padding:2px 8px;border-radius:10px"></span>
+            </div>
+            <div style="font-size:22px;font-weight:800;color:#fff" id="txKpi-todos-val">R$ 0,00</div>
+          </div>
+          <div class="card" id="txKpi-rec" onclick="txSetFilter('income')" style="cursor:pointer;padding:18px 20px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <div style="font-size:12px;font-weight:600;color:var(--text-3)">Receitas</div>
+              <span id="txKpi-rec-count" style="font-size:11px;font-weight:700;color:var(--emerald);background:var(--emerald-dim);padding:2px 8px;border-radius:10px"></span>
+            </div>
+            <div style="font-size:22px;font-weight:800;color:var(--emerald)" id="txKpi-rec-val">R$ 0,00</div>
+          </div>
+          <div class="card" id="txKpi-desp" onclick="txSetFilter('expense')" style="cursor:pointer;padding:18px 20px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <div style="font-size:12px;font-weight:600;color:var(--text-3)">Despesas</div>
+              <span id="txKpi-desp-count" style="font-size:11px;font-weight:700;color:var(--red);background:var(--red-dim);padding:2px 8px;border-radius:10px"></span>
+            </div>
+            <div style="font-size:22px;font-weight:800;color:var(--red)" id="txKpi-desp-val">R$ 0,00</div>
+          </div>
+          <div class="card" id="txKpi-trans" onclick="txSetFilter('transfer')" style="cursor:pointer;padding:18px 20px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <div style="font-size:12px;font-weight:600;color:var(--text-3)">Transferências</div>
+              <span id="txKpi-trans-count" style="font-size:11px;font-weight:700;color:var(--accent);background:var(--accent-dim);padding:2px 8px;border-radius:10px"></span>
+            </div>
+            <div style="font-size:22px;font-weight:800;color:var(--accent)" id="txKpi-trans-val">R$ 0,00</div>
+          </div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="card" style="padding:14px 18px;margin-bottom:12px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <span style="font-size:13px;color:var(--text-3);font-weight:500" id="txFiltroDateLabel">23/09/2026 — 23/09/2026</span>
+            <select class="form-input" style="width:160px;padding:6px 10px;font-size:13px" id="txContaFiltro" onchange="renderTxPage()">
+              <option value="">Todas as contas</option>
+            </select>
+            <input class="form-input" style="flex:1;min-width:160px;padding:6px 10px;font-size:13px" placeholder="Pesquise pela descrição" id="txSearch" oninput="renderTxPage()">
+          </div>
+          <!-- Badges status -->
+          <div style="display:flex;gap:14px;margin-top:12px;flex-wrap:wrap;align-items:center">
+            <span style="font-size:12px;font-weight:700;color:var(--red)">Vencidos <span id="txBadgeVencido" style="font-weight:600">R$ 0,00</span></span>
+            <span style="font-size:12px;font-weight:700;color:var(--orange)">Vencem hoje <span id="txBadgeHoje" style="font-weight:600">R$ 0,00</span></span>
+            <span style="font-size:12px;font-weight:700;color:var(--accent)">A vencer <span id="txBadgeVencer" style="font-weight:600">R$ 0,00</span></span>
+            <span style="font-size:12px;font-weight:700;color:var(--emerald)">Pagos <span id="txBadgePago" style="font-weight:600">R$ 0,00</span></span>
+            <span style="margin-left:auto;font-size:12px;font-weight:700;color:var(--accent)">Total do período <span id="txBadgeTotal" style="font-weight:800">R$ 0,00</span></span>
+          </div>
+        </div>
+
+        <!-- Lista -->
+        <div class="card" style="padding:0">
+          <div id="txPageList"></div>
+          <div id="txEmpty" style="text-align:center;padding:40px;color:var(--text-2);display:none">Nenhum lançamento encontrado</div>
         </div>
       </div>
 
@@ -1023,41 +1066,120 @@ svg { display: block; }
 <div id="overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.3);z-index:99" onclick="closeSidebar()"></div>
 
 <!-- MODAL Transação -->
-<div class="modal-overlay" id="modal" style="display:none" onclick="closeOnBg(event)">
-  <div class="modal">
-    <div class="modal-title" id="modalTxTitle">Novo Lançamento</div>
-    <div class="form-group">
-      <label class="form-label">Tipo</label>
-      <select class="form-input" id="m-tipo">
-        <option value="income">Receita</option>
-        <option value="expense">Despesa</option>
-      </select>
+<!-- MODAL Lançamento -->
+<div class="modal-overlay" id="modalLanc" style="display:none" onclick="closeOnBg(event)">
+  <div class="modal" style="max-width:600px;width:100%">
+    <!-- Tipo tabs -->
+    <div style="display:flex;gap:0;background:var(--surface2);border-radius:10px;padding:3px;margin-bottom:20px">
+      <div id="mltab-expense" onclick="mlSetTipo('expense')" style="flex:1;text-align:center;padding:8px 12px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:.15s;color:var(--red);background:var(--surface)">🔴 Despesa</div>
+      <div id="mltab-income" onclick="mlSetTipo('income')" style="flex:1;text-align:center;padding:8px 12px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:.15s;color:var(--text-2)">🟢 Receita</div>
+      <div id="mltab-transfer" onclick="mlSetTipo('transfer')" style="flex:1;text-align:center;padding:8px 12px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:.15s;color:var(--text-2)">🔵 Transferência</div>
     </div>
+    <input type="hidden" id="ml-tipo" value="expense">
+
+    <!-- Descrição -->
     <div class="form-group">
       <label class="form-label">Descrição</label>
-      <input class="form-input" id="m-desc" placeholder="Ex: Salário, Supermercado...">
+      <input class="form-input" id="ml-desc" placeholder="Ex: Salário, Supermercado...">
     </div>
+
+    <!-- Valor + Conta -->
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Valor (R$)</label>
-        <input class="form-input" id="m-valor" type="number" placeholder="0,00">
+        <input class="form-input" id="ml-valor" type="number" step="0.01" placeholder="0,00">
       </div>
       <div class="form-group">
-        <label class="form-label">Data</label>
-        <input class="form-input" id="m-data" type="date">
+        <label class="form-label">Conta</label>
+        <select class="form-input" id="ml-conta"></select>
       </div>
     </div>
-    <div class="form-group">
-      <label class="form-label">Categoria</label>
-      <select class="form-input" id="m-cat">
-        <option>Salário</option><option>Freelance</option><option>Alimentação</option>
-        <option>Transporte</option><option>Moradia</option><option>Saúde</option>
-        <option>Lazer</option><option>Educação</option><option>Outros</option>
-      </select>
+
+    <!-- Conta Destino (só transferência) -->
+    <div class="form-group" id="ml-conta-dest-wrap" style="display:none">
+      <label class="form-label">Conta Destino</label>
+      <select class="form-input" id="ml-conta-dest"></select>
     </div>
+
+    <!-- Vencimento + Competência -->
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Vencimento</label>
+        <input class="form-input" id="ml-vencimento" type="date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Competência</label>
+        <input class="form-input" id="ml-competencia" type="month">
+      </div>
+    </div>
+
+    <!-- Fornecedor + Forma Pagamento -->
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Fornecedor / Cliente</label>
+        <input class="form-input" id="ml-fornecedor" placeholder="Opcional">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Forma de Pagamento</label>
+        <select class="form-input" id="ml-forma">
+          <option value="">Selecionar</option>
+          <option>Dinheiro</option><option>Pix</option><option>Cartão de Débito</option>
+          <option>Cartão de Crédito</option><option>Boleto</option><option>TED/DOC</option>
+          <option>Cheque</option><option>Outros</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Categoria + Centro de Custo -->
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Categoria</label>
+        <select class="form-input" id="ml-cat">
+          <option>Salário</option><option>Freelance</option><option>Vendas</option>
+          <option>Alimentação</option><option>Transporte</option><option>Moradia</option>
+          <option>Saúde</option><option>Lazer</option><option>Educação</option>
+          <option>Serviços</option><option>Impostos</option><option>Outros</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Centro de Custo</label>
+        <input class="form-input" id="ml-centro" placeholder="Opcional">
+      </div>
+    </div>
+
+    <!-- Pago toggle + Tipo de lançamento -->
+    <div style="display:flex;gap:16px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;font-weight:500">
+        <div id="ml-pago-toggle" onclick="mlTogglePago()" style="width:44px;height:24px;border-radius:12px;background:var(--surface3);position:relative;cursor:pointer;transition:.2s">
+          <div id="ml-pago-knob" style="position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.2);transition:.2s"></div>
+        </div>
+        <span id="ml-pago-label">Não pago</span>
+      </label>
+      <div style="display:flex;gap:6px;flex:1;justify-content:flex-end">
+        <div id="mltl-unico" onclick="mlSetTipoLanc('unico')" style="padding:6px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:var(--accent);color:#fff;transition:.15s">Único</div>
+        <div id="mltl-parcelado" onclick="mlSetTipoLanc('parcelado')" style="padding:6px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface2);color:var(--text-2);transition:.15s">Parcelado</div>
+        <div id="mltl-recorrente" onclick="mlSetTipoLanc('recorrente')" style="padding:6px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface2);color:var(--text-2);transition:.15s">Recorrente</div>
+      </div>
+    </div>
+    <input type="hidden" id="ml-pago" value="0">
+    <input type="hidden" id="ml-tipo-lanc" value="unico">
+
+    <!-- Parcelas (só parcelado) -->
+    <div class="form-group" id="ml-parcelas-wrap" style="display:none">
+      <label class="form-label">Número de Parcelas</label>
+      <input class="form-input" id="ml-parcelas" type="number" min="2" max="96" placeholder="Ex: 12">
+    </div>
+
+    <!-- Observações -->
+    <div class="form-group">
+      <label class="form-label">Observações</label>
+      <input class="form-input" id="ml-obs" placeholder="Opcional">
+    </div>
+
     <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveTransaction()">Salvar</button>
+      <button class="btn btn-ghost" onclick="closeModalLanc()">Cancelar</button>
+      <button class="btn btn-ghost" onclick="saveTransaction(true)" style="border:1.5px solid var(--accent);color:var(--accent)">Salvar e lançar outro</button>
+      <button class="btn btn-primary" onclick="saveTransaction(false)">Salvar</button>
     </div>
   </div>
 </div>
@@ -1513,30 +1635,49 @@ let _bulkMode = false;
 let _bulkSelected = new Set();
 
 function txItemHTML(t) {
-  const emoji = catEmoji[t.cat] || '📦';
-  const cls = t.tipo === 'income' ? 'income' : 'expense';
-  const sign = t.tipo === 'income' ? '+' : '-';
+  const emoji = t.tipo==='income' ? '🟢' : t.tipo==='transfer' ? '🔵' : (catEmoji[t.cat] || '🔴');
+  const bgColor = t.tipo==='income' ? 'var(--emerald-dim)' : t.tipo==='transfer' ? 'rgba(37,99,235,.1)' : 'var(--red-dim)';
+  const cls = t.tipo==='income' ? 'income' : 'expense';
+  const sign = t.tipo==='income' ? '+' : t.tipo==='transfer' ? '⇄' : '-';
+  const conta = (t.contaIdx !== undefined && state.bancos[t.contaIdx]) ? state.bancos[t.contaIdx].nome : '';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const venc = t.data ? new Date(t.data+'T12:00:00') : null;
+  if (venc) venc.setHours(0,0,0,0);
+  let statusBadge = '';
+  if (!t.pago && venc) {
+    if (venc < today) statusBadge = `<span style="font-size:11px;padding:2px 7px;border-radius:12px;background:var(--red-dim);color:var(--red);font-weight:600">Vencido</span>`;
+    else if (venc.getTime()===today.getTime()) statusBadge = `<span style="font-size:11px;padding:2px 7px;border-radius:12px;background:var(--orange-dim);color:var(--orange);font-weight:600">Hoje</span>`;
+    else statusBadge = `<span style="font-size:11px;padding:2px 7px;border-radius:12px;background:var(--emerald-dim);color:var(--emerald);font-weight:600">A vencer</span>`;
+  } else if (t.pago) {
+    statusBadge = `<span style="font-size:11px;padding:2px 7px;border-radius:12px;background:rgba(5,150,105,.08);color:var(--emerald);font-weight:600">✓ Pago</span>`;
+  }
   const checked = _bulkSelected.has(t.id);
   if (_bulkMode) {
     return `<div class="tx-item ${checked ? 'tx-selected' : ''}" onclick="toggleBulkSelect(${t.id})" style="cursor:pointer">
       <input type="checkbox" ${checked ? 'checked' : ''} onclick="event.stopPropagation();toggleBulkSelect(${t.id})" style="accent-color:var(--accent);width:16px;height:16px;cursor:pointer;flex-shrink:0">
-      <div class="tx-icon-wrap" style="background:${t.tipo==='income'?'var(--emerald-dim)':'var(--red-dim)'}">${emoji}</div>
+      <div class="tx-icon-wrap" style="background:${bgColor}">${emoji}</div>
       <div class="tx-info">
         <div class="tx-name">${t.desc}</div>
-        <div class="tx-cat">${t.cat}</div>
+        <div class="tx-cat">${t.cat}${conta ? ' · '+conta : ''}</div>
       </div>
-      <div class="tx-date">${fmtDate(t.data)}</div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        <div class="tx-date">${fmtDate(t.data)}</div>
+        ${statusBadge}
+      </div>
       <div class="tx-amount ${cls}">${sign} ${fmtBRL(t.valor)}</div>
     </div>`;
   }
   return `<div class="tx-item" onclick="editTx(${t.id})" style="cursor:pointer">
-    <div class="tx-icon-wrap" style="background:${t.tipo==='income'?'var(--emerald-dim)':'var(--red-dim)'}">${emoji}</div>
+    <div class="tx-icon-wrap" style="background:${bgColor}">${emoji}</div>
     <div class="tx-info">
       <div class="tx-name">${t.desc}</div>
-      <div class="tx-cat">${t.cat}</div>
+      <div class="tx-cat">${t.cat}${conta ? ' · <span style="color:var(--accent)">' + conta + '</span>' : ''}</div>
     </div>
-    <div class="tx-date">${fmtDate(t.data)}</div>
-    <div class="tx-amount ${cls}">${sign} ${fmtBRL(t.valor)}</div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;margin-left:auto">
+      <div class="tx-date">${fmtDate(t.data)}</div>
+      ${statusBadge}
+    </div>
+    <div class="tx-amount ${cls}" style="margin-left:16px">${sign} ${fmtBRL(t.valor)}</div>
     <button onclick="event.stopPropagation();deleteTx(${t.id})" title="Excluir" style="margin-left:8px;background:none;border:none;cursor:pointer;color:var(--text-3);padding:4px 6px;border-radius:6px;font-size:14px;line-height:1;transition:color 0.15s,background 0.15s" onmouseenter="this.style.color='var(--red)';this.style.background='var(--red-dim)'" onmouseleave="this.style.color='var(--text-3)';this.style.background='none'">✕</button>
   </div>`;
 }
@@ -1544,7 +1685,7 @@ function txItemHTML(t) {
 // ── RENDER PAGES ──
 function renderPage(id) {
   if (id === 'dashboard') renderDashboard();
-  if (id === 'transacoes') renderTxPage();
+  if (id === 'transacoes') { _txFilterTipo=''; renderTxPage(); }
   if (id === 'bolsa') renderBolsa();
   if (id === 'cripto') { renderCripto(); fetchCriptoPrices(); }
   if (id === 'imoveis') renderImoveis();
@@ -1583,21 +1724,89 @@ function renderDashboard() {
   drawPie(s);
 }
 
+let _txFilterTipo = '';
+function txSetFilter(tipo) {
+  _txFilterTipo = tipo;
+  // highlight KPI card
+  ['todos','rec','desp','trans'].forEach(k => {
+    const el = document.getElementById('txKpi-'+k);
+    if (!el) return;
+    const isActive = (k==='todos'&&tipo==='') || (k==='rec'&&tipo==='income') || (k==='desp'&&tipo==='expense') || (k==='trans'&&tipo==='transfer');
+    el.style.outline = isActive ? '2.5px solid var(--accent)' : '';
+  });
+  renderTxPage();
+}
+
+function txToggleAddMenu() {
+  const m = document.getElementById('txAddMenu');
+  m.style.display = m.style.display === 'none' ? 'block' : 'none';
+  if (m.style.display === 'block') {
+    const close = () => { m.style.display='none'; document.removeEventListener('click', close); };
+    setTimeout(() => document.addEventListener('click', close), 10);
+  }
+}
+
 function renderTxPage() {
   const search = (document.getElementById('txSearch')?.value || '').toLowerCase();
-  const filter = document.getElementById('txFilter')?.value || '';
+  const contaFiltro = document.getElementById('txContaFiltro')?.value || '';
   let list = [...state.transactions].sort((a,b) => b.data.localeCompare(a.data));
-  if (search) list = list.filter(t => t.desc.toLowerCase().includes(search) || t.cat.toLowerCase().includes(search));
-  if (filter) list = list.filter(t => t.tipo === filter);
+  if (_txFilterTipo) list = list.filter(t => t.tipo === _txFilterTipo);
+  if (search) list = list.filter(t => (t.desc||'').toLowerCase().includes(search) || (t.cat||'').toLowerCase().includes(search));
+  if (contaFiltro !== '') list = list.filter(t => String(t.contaIdx) === contaFiltro);
+
+  // KPIs
+  const todos = state.transactions;
+  const rec = todos.filter(t => t.tipo==='income').reduce((s,t)=>s+t.valor,0);
+  const desp = todos.filter(t => t.tipo==='expense').reduce((s,t)=>s+t.valor,0);
+  const trans = todos.filter(t => t.tipo==='transfer').reduce((s,t)=>s+t.valor,0);
+  const total = todos.reduce((s,t)=>s+t.valor,0);
+  const kv = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=fmtBRL(v); };
+  kv('txKpi-todos-val', total);
+  kv('txKpi-rec-val', rec);
+  kv('txKpi-desp-val', desp);
+  kv('txKpi-trans-val', trans);
+
+  // KPI counts
+  const kl = (id,n) => { const el=document.getElementById(id); if(el) el.textContent=n; };
+  kl('txKpi-todos-count', todos.length);
+  kl('txKpi-rec-count', todos.filter(t=>t.tipo==='income').length);
+  kl('txKpi-desp-count', todos.filter(t=>t.tipo==='expense').length);
+  kl('txKpi-trans-count', todos.filter(t=>t.tipo==='transfer').length);
+
+  // Populate conta filter
+  const cf = document.getElementById('txContaFiltro');
+  if (cf) {
+    const currentVal = cf.value;
+    cf.innerHTML = '<option value="">Todas as contas</option>';
+    state.bancos.forEach((b,i) => {
+      const o = document.createElement('option');
+      o.value = i; o.textContent = b.nome;
+      cf.appendChild(o);
+    });
+    if (currentVal) cf.value = currentVal;
+  }
+
+  // Status badges
+  const today = new Date(); today.setHours(0,0,0,0);
+  const vencidos = state.transactions.filter(t => { if(t.pago) return false; const d=new Date(t.data+'T12:00:00'); d.setHours(0,0,0,0); return d < today; });
+  const hj = state.transactions.filter(t => { if(t.pago) return false; const d=new Date(t.data+'T12:00:00'); d.setHours(0,0,0,0); return d.getTime()===today.getTime(); });
+  const vencer = state.transactions.filter(t => { if(t.pago) return false; const d=new Date(t.data+'T12:00:00'); d.setHours(0,0,0,0); return d > today; });
+  const pagos = state.transactions.filter(t => t.pago);
+  const sb=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
+  sb('txBadgeVencido', vencidos.length);
+  sb('txBadgeHoje', hj.length);
+  sb('txBadgeVencer', vencer.length);
+  sb('txBadgePago', pagos.length);
+  sb('txBadgeTotal', todos.length);
+
   const el = document.getElementById('txPageList');
   const empty = document.getElementById('txEmpty');
-  el.innerHTML = list.map(txItemHTML).join('');
-  empty.style.display = list.length ? 'none' : 'block';
-  document.getElementById('txBadge').textContent = state.transactions.filter(t => {
-    const d = new Date(t.data + 'T12:00:00');
-    const n = new Date();
-    return n - d < 86400000 * 7;
-  }).length;
+  if (el) el.innerHTML = list.map(txItemHTML).join('');
+  if (empty) empty.style.display = list.length ? 'none' : 'block';
+
+  // nav badge
+  const nb = document.getElementById('txBadge');
+  if (nb) nb.textContent = vencidos.length || '';
 }
 
 function renderBolsa() {
@@ -2525,47 +2734,153 @@ function bulkDelete() {
 }
 
 let _editingTxId = null;
+let _editingTxOld = null; // old tx snapshot for balance reversal
+
+// ── MODAL LANÇAMENTO HELPERS ──
+function mlSetTipo(tipo) {
+  document.getElementById('ml-tipo').value = tipo;
+  ['expense','income','transfer'].forEach(t => {
+    const el = document.getElementById('mltab-'+t);
+    if (t === tipo) {
+      el.style.background = 'var(--surface)';
+      el.style.color = t==='expense'?'var(--red)':t==='income'?'var(--emerald)':'var(--accent)';
+    } else {
+      el.style.background = '';
+      el.style.color = 'var(--text-2)';
+    }
+  });
+  document.getElementById('ml-conta-dest-wrap').style.display = tipo==='transfer' ? 'block' : 'none';
+}
+
+function mlSetTipoLanc(tl) {
+  document.getElementById('ml-tipo-lanc').value = tl;
+  ['unico','parcelado','recorrente'].forEach(t => {
+    const el = document.getElementById('mltl-'+t);
+    if (t === tl) { el.style.background='var(--accent)'; el.style.color='#fff'; }
+    else { el.style.background='var(--surface2)'; el.style.color='var(--text-2)'; }
+  });
+  document.getElementById('ml-parcelas-wrap').style.display = tl==='parcelado' ? 'block' : 'none';
+}
+
+function mlTogglePago() {
+  const cur = document.getElementById('ml-pago').value === '1';
+  const next = !cur;
+  document.getElementById('ml-pago').value = next ? '1' : '0';
+  const tog = document.getElementById('ml-pago-toggle');
+  const knob = document.getElementById('ml-pago-knob');
+  const lbl = document.getElementById('ml-pago-label');
+  tog.style.background = next ? 'var(--emerald)' : 'var(--surface3)';
+  knob.style.left = next ? '22px' : '2px';
+  lbl.textContent = next ? 'Pago' : 'Não pago';
+}
+
+function _mlPopulateContas() {
+  const opts = state.bancos.length
+    ? state.bancos.map((b,i) => `<option value="${i}">${b.nome}</option>`).join('')
+    : '<option value="">Nenhuma conta cadastrada</option>';
+  document.getElementById('ml-conta').innerHTML = opts;
+  document.getElementById('ml-conta-dest').innerHTML = opts;
+}
+
+function openModalLanc(tipo) {
+  document.getElementById('txAddMenu').style.display = 'none';
+  _editingTxId = null;
+  _editingTxOld = null;
+  const today = new Date().toISOString().split('T')[0];
+  const ym = today.slice(0,7);
+  // reset fields
+  document.getElementById('ml-desc').value = '';
+  document.getElementById('ml-valor').value = '';
+  document.getElementById('ml-vencimento').value = today;
+  document.getElementById('ml-competencia').value = ym;
+  document.getElementById('ml-fornecedor').value = '';
+  document.getElementById('ml-forma').value = '';
+  document.getElementById('ml-cat').value = 'Outros';
+  document.getElementById('ml-centro').value = '';
+  document.getElementById('ml-obs').value = '';
+  document.getElementById('ml-parcelas').value = '';
+  document.getElementById('ml-pago').value = '0';
+  const tog = document.getElementById('ml-pago-toggle');
+  const knob = document.getElementById('ml-pago-knob');
+  tog.style.background = 'var(--surface3)';
+  knob.style.left = '2px';
+  document.getElementById('ml-pago-label').textContent = 'Não pago';
+  _mlPopulateContas();
+  mlSetTipo(tipo || 'expense');
+  mlSetTipoLanc('unico');
+  document.getElementById('modalLanc').style.display = 'flex';
+}
+
+function closeModalLanc() {
+  document.getElementById('modalLanc').style.display = 'none';
+  _editingTxId = null;
+  _editingTxOld = null;
+}
+
 function editTx(txId) {
   closeTxMenu();
   const t = state.transactions.find(x => x.id === txId);
   if (!t) return;
   _editingTxId = txId;
-  document.getElementById('modalTxTitle').textContent = 'Editar Lançamento';
-  document.getElementById('m-tipo').value = t.tipo;
-  document.getElementById('m-desc').value = t.desc;
-  document.getElementById('m-valor').value = t.valor;
-  document.getElementById('m-data').value = t.data;
-  document.getElementById('m-cat').value = t.cat;
-  document.getElementById('modal').style.display = 'flex';
+  _editingTxOld = { ...t };
+  _mlPopulateContas();
+  mlSetTipo(t.tipo || 'expense');
+  mlSetTipoLanc(t.tipoLanc || 'unico');
+  document.getElementById('ml-desc').value = t.desc || '';
+  document.getElementById('ml-valor').value = t.valor || '';
+  document.getElementById('ml-vencimento').value = t.data || '';
+  document.getElementById('ml-competencia').value = (t.competencia || t.data || '').slice(0,7);
+  document.getElementById('ml-fornecedor').value = t.fornecedor || '';
+  document.getElementById('ml-forma').value = t.formaPagamento || '';
+  document.getElementById('ml-cat').value = t.cat || 'Outros';
+  document.getElementById('ml-centro').value = t.centro || '';
+  document.getElementById('ml-obs').value = t.obs || '';
+  document.getElementById('ml-parcelas').value = t.parcelas || '';
+  // pago
+  const pago = t.pago ? '1' : '0';
+  document.getElementById('ml-pago').value = pago;
+  const tog = document.getElementById('ml-pago-toggle');
+  const knob = document.getElementById('ml-pago-knob');
+  tog.style.background = pago==='1' ? 'var(--emerald)' : 'var(--surface3)';
+  knob.style.left = pago==='1' ? '22px' : '2px';
+  document.getElementById('ml-pago-label').textContent = pago==='1' ? 'Pago' : 'Não pago';
+  // conta
+  if (t.contaIdx !== undefined) {
+    const cs = document.getElementById('ml-conta');
+    if (cs.options[t.contaIdx]) cs.selectedIndex = t.contaIdx;
+  }
+  document.getElementById('modalLanc').style.display = 'flex';
 }
 
 function closeTxMenu() {
   document.querySelectorAll('.tx-menu').forEach(m => m.remove());
 }
 
+function _applyBankEffect(tipo, contaIdx, valor, direction) {
+  // direction: +1 = apply, -1 = reverse
+  const banco = state.bancos[contaIdx];
+  if (!banco) return;
+  if (tipo === 'income')    banco.saldo += direction * valor;
+  if (tipo === 'expense')   banco.saldo -= direction * valor;
+  // transfer: subtract from source (applied on save, reversed on edit)
+}
+
 function deleteTx(txId) {
   closeTxMenu();
+  const t = state.transactions.find(x => x.id === txId);
+  if (t) {
+    // reverse bank effect
+    _applyBankEffect(t.tipo, t.contaIdx ?? -1, t.valor, -1);
+  }
   state.transactions = state.transactions.filter(x => x.id !== txId);
   saveState();
   renderDashboard();
   renderTxPage();
 }
 
-function openModal() {
-  _editingTxId = null;
-  document.getElementById('modalTxTitle').textContent = 'Novo Lançamento';
-  document.getElementById('m-desc').value = '';
-  document.getElementById('m-valor').value = '';
-  document.getElementById('m-tipo').value = 'expense';
-  document.getElementById('m-cat').value = 'Alimentação';
-  const m = document.getElementById('modal');
-  m.style.display='flex';
-  document.getElementById('m-data').value = new Date().toISOString().split('T')[0];
-}
-function closeModal() {
-  document.getElementById('modal').style.display='none';
-  _editingTxId = null;
-}
+// legacy compat
+function openModal() { openModalLanc('expense'); }
+function closeModal() { closeModalLanc(); }
 function openModalBolsa() { document.getElementById('modalBolsa').style.display='flex'; }
 function openModalCripto() { document.getElementById('modalCripto').style.display='flex'; }
 function openModalImovel() { document.getElementById('modalImovel').style.display='flex'; }
@@ -2580,23 +2895,55 @@ function closeOnBg(e) {
 }
 
 // ── SAVE ──
-function saveTransaction() {
-  const tipo=document.getElementById('m-tipo').value;
-  const desc=document.getElementById('m-desc').value.trim();
-  const valor=parseFloat(document.getElementById('m-valor').value);
-  const data=document.getElementById('m-data').value;
-  const cat=document.getElementById('m-cat').value;
-  if(!desc||!valor||!data){alert('Preencha todos os campos');return;}
+function saveTransaction(lancarOutro) {
+  const tipo = document.getElementById('ml-tipo').value;
+  const desc = document.getElementById('ml-desc').value.trim();
+  const valor = parseFloat(document.getElementById('ml-valor').value);
+  const vencimento = document.getElementById('ml-vencimento').value;
+  const competencia = document.getElementById('ml-competencia').value;
+  const fornecedor = document.getElementById('ml-fornecedor').value.trim();
+  const formaPagamento = document.getElementById('ml-forma').value;
+  const cat = document.getElementById('ml-cat').value;
+  const centro = document.getElementById('ml-centro').value.trim();
+  const obs = document.getElementById('ml-obs').value.trim();
+  const pago = document.getElementById('ml-pago').value === '1';
+  const tipoLanc = document.getElementById('ml-tipo-lanc').value;
+  const parcelas = parseInt(document.getElementById('ml-parcelas').value) || 1;
+  const contaIdx = parseInt(document.getElementById('ml-conta').value);
+
+  if (!desc || !valor || !vencimento) { alert('Preencha Descrição, Valor e Vencimento'); return; }
+
   if (_editingTxId !== null) {
+    // reverse old bank effect
+    if (_editingTxOld) {
+      _applyBankEffect(_editingTxOld.tipo, _editingTxOld.contaIdx ?? -1, _editingTxOld.valor, -1);
+    }
     const idx = state.transactions.findIndex(x => x.id === _editingTxId);
-    if (idx !== -1) state.transactions[idx] = { id: _editingTxId, tipo, desc, valor, data, cat };
+    if (idx !== -1) {
+      state.transactions[idx] = { id: _editingTxId, tipo, desc, valor, data: vencimento, competencia, fornecedor, formaPagamento, cat, centro, obs, pago, tipoLanc, parcelas, contaIdx };
+    }
+    // apply new bank effect
+    _applyBankEffect(tipo, contaIdx, valor, +1);
+    _editingTxId = null;
+    _editingTxOld = null;
   } else {
-    state.transactions.unshift({ id:Date.now(), tipo, desc, valor, data, cat });
+    // apply bank effect
+    _applyBankEffect(tipo, contaIdx, valor, +1);
+    state.transactions.unshift({ id: Date.now(), tipo, desc, valor, data: vencimento, competencia, fornecedor, formaPagamento, cat, centro, obs, pago, tipoLanc, parcelas, contaIdx });
   }
+
   saveState();
-  closeModal();
+
+  if (lancarOutro) {
+    const tipoAtual = tipo;
+    openModalLanc(tipoAtual);
+  } else {
+    closeModalLanc();
+  }
+
   renderDashboard();
   renderTxPage();
+  renderBancos();
 }
 
 function saveBolsa() {
