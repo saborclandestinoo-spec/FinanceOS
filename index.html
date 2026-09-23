@@ -1260,26 +1260,7 @@ sb.auth.getSession().then(({ data: { session } }) => {
   }
 });
 
-// ── SUPABASE DATA ──
-async function sbFetch(method, body) {
-  const url = `${SB_URL}/rest/v1/${SB_TABLE}`;
-  const session = (await sb.auth.getSession()).data.session;
-  const token = session ? session.access_token : SB_KEY;
-  const headers = {
-    'apikey': SB_KEY,
-    'Authorization': `Bearer ${token}`,
-    'Content-Type': 'application/json',
-    'Prefer': method === 'POST' ? 'resolution=merge-duplicates,return=minimal' : 'return=minimal'
-  };
-  const uid = currentUser?.id || 'anon';
-  try {
-    const res = await fetch(method === 'GET' ? `${url}?user_id=eq.${encodeURIComponent(uid)}&select=data` : url, {
-      method, headers, body: body ? JSON.stringify(body) : undefined
-    });
-    if (!res.ok) throw new Error(res.status);
-    return method === 'GET' ? res.json() : true;
-  } catch(e) { console.warn('Supabase error', e); return null; }
-}
+// ── SUPABASE DATA ── (uses JS client, not raw fetch)
 
 // ── STATE ──
 const STORE_KEY = 'financeos_v3';
@@ -1312,13 +1293,17 @@ async function loadState() {
     const s = localStorage.getItem(localKey);
     if (s) state = { ...state, ...JSON.parse(s) };
   } catch(e) {}
-  // 2. Supabase (may overwrite with newer data)
-  const rows = await sbFetch('GET');
-  if (rows && rows.length > 0) {
-    state = { ...state, ...rows[0].data };
-    try { localStorage.setItem(localKey, JSON.stringify(state)); } catch(e) {}
-    showSyncBadge('☁ sincronizado');
-  } else if (!rows) {
+  // 2. Supabase via JS client
+  try {
+    const { data: rows, error } = await sb.from(SB_TABLE).select('data').eq('user_id', uid).maybeSingle();
+    if (error) throw error;
+    if (rows && rows.data) {
+      state = { ...state, ...rows.data };
+      try { localStorage.setItem(localKey, JSON.stringify(state)); } catch(e) {}
+      showSyncBadge('☁ sincronizado');
+    }
+  } catch(e) {
+    console.warn('loadState Supabase error', e);
     showSyncBadge('⚠ offline (local)', false);
   }
 }
@@ -1331,8 +1316,17 @@ function saveState() {
   clearTimeout(_sbSaveTimer);
   _sbSaveTimer = setTimeout(async () => {
     showSyncBadge('↑ salvando…');
-    const ok = await sbFetch('POST', { user_id: uid, data: state, updated_at: new Date().toISOString() });
-    showSyncBadge(ok ? '☁ salvo' : '⚠ falha sync', !!ok);
+    try {
+      const { error } = await sb.from(SB_TABLE).upsert(
+        { user_id: uid, data: state, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id' }
+      );
+      if (error) throw error;
+      showSyncBadge('☁ salvo');
+    } catch(e) {
+      console.warn('saveState Supabase error', e);
+      showSyncBadge('⚠ falha sync', false);
+    }
   }, 500);
 }
 
