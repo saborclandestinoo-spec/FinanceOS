@@ -675,11 +675,6 @@ svg { display: block; }
       </div>
       <div class="topbar-right">
         <span id="syncBadge" style="font-size:11px;color:var(--text-3);opacity:0.4;transition:opacity 0.5s;user-select:none">☁ sync</span>
-        <button class="topbar-btn" onclick="openModal()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Adicionar
-        </button>
-        <button class="topbar-btn primary" onclick="openModal()">Novo Lançamento</button>
       </div>
     </header>
 
@@ -988,24 +983,12 @@ svg { display: block; }
 
       <!-- ── FLUXO DE CAIXA ── -->
       <div class="page" id="page-orcamento">
-        <!-- Barra de período -->
-        <div class="card" style="padding:14px 20px;margin-bottom:0">
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-            <span style="font-size:13px;font-weight:600;color:var(--text-2)">Período:</span>
-            <div style="display:flex;gap:5px;flex-wrap:wrap" id="fcAtalhos">
-              <button onclick="fcSetPreset('mes')" class="btn btn-ghost" id="fca-mes" style="padding:4px 11px;font-size:12px">Este mês</button>
-              <button onclick="fcSetPreset('mes-ant')" class="btn btn-ghost" id="fca-mesant" style="padding:4px 11px;font-size:12px">Mês passado</button>
-              <button onclick="fcSetPreset('tri')" class="btn btn-ghost" id="fca-tri" style="padding:4px 11px;font-size:12px">Este trimestre</button>
-              <button onclick="fcSetPreset('tri-ant')" class="btn btn-ghost" id="fca-triant" style="padding:4px 11px;font-size:12px">Trim. passado</button>
-              <button onclick="fcSetPreset('ano')" class="btn btn-ghost" id="fca-ano" style="padding:4px 11px;font-size:12px">Este ano</button>
-              <button onclick="fcSetPreset('6m')" class="btn btn-ghost" id="fca-6m" style="padding:4px 11px;font-size:12px">6 meses</button>
-              <button onclick="fcSetPreset('12m')" class="btn btn-ghost" id="fca-12m" style="padding:4px 11px;font-size:12px">12 meses</button>
-            </div>
-            <button onclick="fcOpenCal()" class="btn btn-ghost" id="fcCalBtn" style="margin-left:auto;padding:5px 14px;font-size:12px;display:flex;align-items:center;gap:6px">
-              📅 <span id="fcCalLabel">Selecionar período</span>
-            </button>
-          </div>
-          <div style="margin-top:8px;font-size:12px;color:var(--text-3)" id="fcPeriodoLabel"></div>
+        <!-- Barra calendário -->
+        <div class="card" style="padding:10px 16px;margin-bottom:0;display:flex;align-items:center;gap:12px">
+          <button onclick="fcOpenCal()" class="btn btn-ghost" id="fcCalBtn" style="padding:6px 16px;font-size:13px;display:flex;align-items:center;gap:7px;font-weight:600">
+            📅 <span id="fcCalLabel">Selecionar período</span>
+          </button>
+          <span style="font-size:12px;color:var(--text-3)" id="fcPeriodoLabel"></span>
         </div>
 
         <!-- Planilha de fluxo de caixa -->
@@ -2369,11 +2352,14 @@ function renderOrcamento() {
   const th = (txt, extra='') =>
     `<th style="padding:10px 14px;border-bottom:2px solid var(--border);border-right:1px solid var(--border);white-space:nowrap;font-size:12px;font-weight:600;color:var(--text-2);${BG_HEADER}${extra}">${txt}</th>`;
 
+  const thSticky = (txt, extra='') =>
+    `<th style="padding:10px 14px;border-bottom:2px solid var(--border);border-right:2px solid var(--border);white-space:nowrap;font-size:12px;font-weight:600;color:var(--text-2);position:sticky;left:0;z-index:3;${BG_HEADER}${extra}">${txt}</th>`;
+
   const td = (txt, extra='') =>
     `<td style="padding:9px 14px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap;font-variant-numeric:tabular-nums;font-size:13px;${extra}">${txt}</td>`;
 
   const tdLabel = (txt, indent=false, extra='') =>
-    `<td style="padding:9px 14px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap;font-size:13px;${indent?'padding-left:28px;color:var(--text-2);':' font-weight:600;'}${extra}">${txt}</td>`;
+    `<td style="padding:9px 14px;border-bottom:1px solid var(--border);border-right:2px solid var(--border);white-space:nowrap;font-size:13px;position:sticky;left:0;z-index:2;${indent?'padding-left:28px;color:var(--text-2);':' font-weight:600;'}${extra}">${txt}</td>`;
 
   const fv = (v, clr='') => v === 0 ? `<span style="color:var(--text-3)">—</span>` : `<span style="color:${clr||'var(--text)'};font-weight:${clr?'600':'400'}">${fmtBRL(v)}</span>`;
 
@@ -2381,7 +2367,7 @@ function renderOrcamento() {
 
   // HEADER ROW
   let html = `<thead><tr>
-    ${th('', 'min-width:180px')}
+    ${thSticky('', 'min-width:200px')}
     ${buckets.map(b => th(b.label, 'text-align:right')).join('')}
     ${th('TOTAL', 'text-align:right;color:var(--accent)')}
   </tr></thead><tbody>`;
