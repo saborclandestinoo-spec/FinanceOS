@@ -854,7 +854,7 @@ svg { display: block; }
 
       <!-- ── CRIPTO ── -->
       <div class="page" id="page-cripto">
-        <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
+        <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
           <div class="kpi-card">
             <div class="kpi-label">Portfólio Cripto</div>
             <div class="kpi-value" id="cripto-total">R$ 0</div>
@@ -866,8 +866,13 @@ svg { display: block; }
             <span class="kpi-delta up" id="cripto-lucro-abs"></span>
           </div>
           <div class="kpi-card">
-            <div class="kpi-label">Moedas na Carteira</div>
+            <div class="kpi-label">Variação 24h</div>
             <div class="kpi-value" id="cripto-count">0</div>
+            <span class="kpi-delta up" id="cripto-var24h">aguardando cotação…</span>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Moedas</div>
+            <div class="kpi-value" id="cripto-num">0</div>
             <span class="kpi-delta up">Criptoativos</span>
           </div>
         </div>
@@ -1600,12 +1605,26 @@ function renderCripto() {
   const custo = state.cripto.reduce((s,c) => s+c.qtd*c.preco, 0);
   const lucro = total - custo;
   const deltaPct = custo > 0 ? ((total-custo)/custo)*100 : 0;
+  // 24h variation
+  const total24hAgo = state.cripto.reduce((s,c) => s + c.qtd*(c.precoOntem || c.atual), 0);
+  const var24h = total - total24hAgo;
+  const var24hPct = total24hAgo > 0 ? (var24h/total24hAgo)*100 : 0;
   document.getElementById('cripto-total').textContent = fmtBRL(total);
   const dEl = document.getElementById('cripto-delta');
   dEl.className = 'kpi-delta ' + (deltaPct>=0?'up':'down');
   dEl.textContent = (deltaPct>=0?'↑':'↓')+' '+fmtPct(Math.abs(deltaPct));
   document.getElementById('cripto-custo').textContent = fmtBRL(custo);
-  document.getElementById('cripto-count').textContent = state.cripto.length;
+  // 24h KPI
+  const el24hVal = document.getElementById('cripto-count');
+  if (el24hVal) el24hVal.textContent = (var24h>=0?'+':'')+fmtBRL(var24h);
+  if (el24hVal) el24hVal.style.color = var24h>=0 ? 'var(--emerald)' : 'var(--red)';
+  const el24h = document.getElementById('cripto-var24h');
+  if (el24h) {
+    el24h.className = 'kpi-delta ' + (var24h>=0?'up':'down');
+    el24h.textContent = (var24h>=0?'↑ ':'↓ ') + fmtPct(Math.abs(var24hPct)) + ' hoje';
+  }
+  const elNum = document.getElementById('cripto-num');
+  if (elNum) elNum.textContent = state.cripto.length;
   const lucroEl = document.getElementById('cripto-lucro-abs');
   lucroEl.className = 'kpi-delta ' + (lucro>=0?'up':'down');
   lucroEl.textContent = (lucro>=0?'↑ Ganho: ':'↓ Perda: ') + fmtBRL(Math.abs(lucro));
@@ -1629,7 +1648,10 @@ function renderCripto() {
         ${sp}
       </div>
       <div class="crypto-price">${fmtBRL(c.atual)}</div>
-      <div class="crypto-change" style="color:${clr}">${fmtPct(vp)}</div>
+      <div style="display:flex;gap:10px;align-items:center;margin-top:2px">
+        <div class="crypto-change" style="color:${clr}" title="vs. preço médio">${fmtPct(vp)} vs PM</div>
+        ${c.change24h != null ? `<div style="font-size:12px;color:${c.change24h>=0?'var(--emerald)':'var(--red)'};font-weight:500" title="Variação 24h">${c.change24h>=0?'▲':'▼'} ${Math.abs(c.change24h).toFixed(2)}% 24h</div>` : ''}
+      </div>
       <div class="crypto-capital">
         <div class="crypto-cap-item">
           <div class="crypto-cap-label">Capital Investido</div>
@@ -1819,15 +1841,48 @@ function drawLineChart() {
   const W=600, H=180, pad={t:10,r:20,b:30,l:60};
   const iW=W-pad.l-pad.r, iH=H-pad.t-pad.b;
 
+  // Build real data from transactions grouped by month
   const months = 13;
-  const base = 180000;
-  let vals = [];
-  for (let i=0;i<months;i++) {
-    const prev = vals[i-1] || base;
-    vals.push(prev * (1 + (Math.random()*0.06-0.01)));
-  }
   const s = stats();
-  vals[vals.length-1] = s.patrimonio || vals[vals.length-1];
+  const now = new Date();
+
+  // Group transactions by month to build cumulative patrimônio history
+  const monthMap = {};
+  state.transactions.forEach(t => {
+    const d = new Date(t.data);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    if (!monthMap[key]) monthMap[key] = 0;
+    monthMap[key] += t.tipo === 'income' ? t.valor : -t.valor;
+  });
+
+  // Build last N months labels + cumulative flow
+  const monthLabels=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const datePoints = Array.from({length:months},(_,i)=>{
+    const d=new Date(now); d.setMonth(d.getMonth()-months+1+i);
+    return { label: monthLabels[d.getMonth()], key: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` };
+  });
+
+  // cumulative from transactions only — last point = current real patrimônio
+  let running = 0;
+  const flowByKey = {};
+  datePoints.forEach(dp => { flowByKey[dp.key] = monthMap[dp.key] || 0; });
+  const cumulative = datePoints.map(dp => { running += flowByKey[dp.key]; return running; });
+
+  // Scale last point to real patrimônio, distribute proportionally
+  const lastFlow = cumulative[cumulative.length-1];
+  const realPat = s.patrimonio;
+  let vals;
+  if (lastFlow === 0 && realPat === 0) {
+    vals = cumulative.map(() => 0);
+  } else if (lastFlow === 0) {
+    // No tx history — just flat line at current value
+    vals = cumulative.map(() => realPat);
+  } else {
+    const scale = realPat / lastFlow;
+    vals = cumulative.map(v => v * scale);
+  }
+  vals[vals.length-1] = realPat; // pin last to exact value
+  const labels = datePoints.map(dp => dp.label);
 
   const mn = Math.min(...vals)*0.97, mx = Math.max(...vals)*1.02;
   const xOf = i => pad.l + (i/(months-1))*iW;
@@ -1835,13 +1890,6 @@ function drawLineChart() {
 
   const line='M'+vals.map((v,i)=>`${xOf(i)},${yOf(v)}`).join('L');
   const area=line+`L${xOf(months-1)},${H-pad.b}L${xOf(0)},${H-pad.b}Z`;
-
-  const monthLabels=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-  const now=new Date();
-  const labels=Array.from({length:months},(_,i)=>{
-    const d=new Date(now); d.setMonth(d.getMonth()-months+1+i);
-    return monthLabels[d.getMonth()];
-  });
 
   const gridLines=[0.25,0.5,0.75,1].map(f=>{
     const v=mn+(mx-mn)*f;
@@ -1983,6 +2031,10 @@ function editTx(txId) {
   document.getElementById('modal').style.display = 'flex';
 }
 
+function closeTxMenu() {
+  document.querySelectorAll('.tx-menu').forEach(m => m.remove());
+}
+
 function deleteTx(txId) {
   closeTxMenu();
   state.transactions = state.transactions.filter(x => x.id !== txId);
@@ -2067,14 +2119,19 @@ async function fetchCriptoPrices() {
   const ids = state.cripto.map(c => CG_IDS[c.symbol] || c.symbol.toLowerCase()).join(',');
   showSyncBadge('↑ cotações…');
   try {
-    const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=brl`);
+    const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=brl&include_24hr_change=true`);
     if (!res.ok) throw new Error(res.status);
     const data = await res.json();
     let updated = false;
     state.cripto = state.cripto.map(c => {
       const cgId = CG_IDS[c.symbol] || c.symbol.toLowerCase();
       const price = data[cgId]?.brl;
-      if (price) { updated = true; return { ...c, atual: price }; }
+      const change24h = data[cgId]?.brl_24h_change;
+      if (price) {
+        updated = true;
+        const precoOntem = change24h != null ? price / (1 + change24h/100) : (c.precoOntem || price);
+        return { ...c, atual: price, change24h: change24h || 0, precoOntem };
+      }
       return c;
     });
     if (updated) {
