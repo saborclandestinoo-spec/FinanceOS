@@ -522,6 +522,16 @@ svg { display: block; }
 .btn { padding: 9px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; }
 .btn-ghost { background: var(--surface2); color: var(--text-2); }
 .btn-ghost:hover { background: var(--surface3); color: var(--text); }
+.fccp { padding:8px 12px;border-radius:8px;font-size:13px;color:var(--text-2);cursor:pointer;transition:.15s; }
+.fccp:hover { background:var(--surface2);color:var(--text); }
+.fccp.active { color:var(--red);font-weight:700; }
+.fc-cal-day { width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:13px;cursor:pointer;transition:.12s; }
+.fc-cal-day:hover { background:var(--surface2); }
+.fc-cal-day.in-range { background:#FFEAEA;border-radius:0; }
+.fc-cal-day.range-start,.fc-cal-day.range-end { background:var(--red);color:#fff;border-radius:50%; }
+.fc-cal-day.today { font-weight:700;color:var(--red); }
+.fc-cal-day.other-month { color:var(--text-3); }
+.fc-cal-day.disabled { opacity:.35;cursor:default; }
 .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 4px 12px var(--accent-glow); }
 .btn-primary:hover { background: #5952e0; }
 
@@ -939,7 +949,6 @@ svg { display: block; }
         <div class="card" style="padding:14px 20px;margin-bottom:0">
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
             <span style="font-size:13px;font-weight:600;color:var(--text-2)">Período:</span>
-            <!-- Atalhos rápidos -->
             <div style="display:flex;gap:5px;flex-wrap:wrap" id="fcAtalhos">
               <button onclick="fcSetPreset('mes')" class="btn btn-ghost" id="fca-mes" style="padding:4px 11px;font-size:12px">Este mês</button>
               <button onclick="fcSetPreset('mes-ant')" class="btn btn-ghost" id="fca-mesant" style="padding:4px 11px;font-size:12px">Mês passado</button>
@@ -949,12 +958,9 @@ svg { display: block; }
               <button onclick="fcSetPreset('6m')" class="btn btn-ghost" id="fca-6m" style="padding:4px 11px;font-size:12px">6 meses</button>
               <button onclick="fcSetPreset('12m')" class="btn btn-ghost" id="fca-12m" style="padding:4px 11px;font-size:12px">12 meses</button>
             </div>
-            <!-- Range de datas -->
-            <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
-              <input type="date" id="fcDateStart" class="form-input" style="padding:5px 8px;font-size:12px;width:130px" onchange="fcApplyRange()">
-              <span style="color:var(--text-3);font-size:12px">até</span>
-              <input type="date" id="fcDateEnd" class="form-input" style="padding:5px 8px;font-size:12px;width:130px" onchange="fcApplyRange()">
-            </div>
+            <button onclick="fcOpenCal()" class="btn btn-ghost" id="fcCalBtn" style="margin-left:auto;padding:5px 14px;font-size:12px;display:flex;align-items:center;gap:6px">
+              📅 <span id="fcCalLabel">Selecionar período</span>
+            </button>
           </div>
           <div style="margin-top:8px;font-size:12px;color:var(--text-3)" id="fcPeriodoLabel"></div>
         </div>
@@ -963,6 +969,40 @@ svg { display: block; }
         <div class="card" style="padding:0">
           <div style="overflow-x:auto">
             <table id="fcSheet" style="width:100%;border-collapse:collapse;font-size:13px;min-width:700px"></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── MODAL CALENDÁRIO FC ── -->
+      <div id="modalFcCal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center">
+        <div style="background:var(--surface);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.25);width:min(760px,96vw);overflow:hidden">
+          <div style="display:flex;min-height:420px">
+            <!-- Atalhos lateral -->
+            <div style="width:160px;min-width:140px;border-right:1px solid var(--border);padding:16px 0;display:flex;flex-direction:column;gap:2px;background:var(--bg)">
+              <div id="fcCalPresets" style="display:flex;flex-direction:column;gap:2px;padding:0 8px">
+                <div class="fccp" onclick="fcCalPreset('hoje')" id="fccp-hoje">Hoje</div>
+                <div class="fccp" onclick="fcCalPreset('ontem')" id="fccp-ontem">Ontem</div>
+                <div class="fccp" onclick="fcCalPreset('semana')" id="fccp-semana">Esta semana</div>
+                <div class="fccp" onclick="fcCalPreset('semana-ant')" id="fccp-semana-ant">Semana passada</div>
+                <div class="fccp" onclick="fcCalPreset('mes')" id="fccp-mes">Este mês</div>
+                <div class="fccp" onclick="fcCalPreset('mes-ant')" id="fccp-mes-ant">Mês passado</div>
+                <div class="fccp" onclick="fcCalPreset('prox-mes')" id="fccp-prox-mes">Próximo mês</div>
+                <div style="height:1px;background:var(--border);margin:8px 0"></div>
+              </div>
+              <div id="fcCalMonthShortcuts" style="padding:0 8px;display:flex;flex-direction:column;gap:2px;overflow-y:auto;max-height:200px"></div>
+            </div>
+            <!-- Calendários -->
+            <div style="flex:1;padding:20px;display:flex;flex-direction:column;gap:16px">
+              <div style="font-size:14px;font-weight:600;color:var(--text-2)" id="fcCalMonthTitle"></div>
+              <div style="display:flex;gap:24px;flex-wrap:wrap" id="fcCalGrids"></div>
+              <!-- Botões ano/trimestre + OK -->
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:auto;padding-top:12px;border-top:1px solid var(--border)">
+                <div id="fcCalYearBtns" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+                <button onclick="fcCalPreset('este-tri')" class="btn btn-ghost" style="padding:5px 12px;font-size:12px">Este trimestre</button>
+                <button onclick="fcCalPreset('tri-ant')" class="btn btn-ghost" style="padding:5px 12px;font-size:12px">Trim. passado</button>
+                <button onclick="fcCalConfirm()" class="btn btn-primary" style="margin-left:auto;padding:7px 24px;font-size:14px;font-weight:700">OK</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1799,26 +1839,17 @@ function _firstDay(y,m) { return new Date(y,m,1); }
 
 function fcSetPreset(preset) {
   const now = new Date();
-  const y = now.getFullYear(), m = now.getMonth();
+  const y=now.getFullYear(), m=now.getMonth(), d=now.getDate();
   _fcPreset = preset;
-  if (preset === 'mes')     { _fcStart = _firstDay(y,m);   _fcEnd = _firstDay(y,m); }
-  else if (preset === 'mes-ant') { _fcStart = _firstDay(y,m-1); _fcEnd = _firstDay(y,m-1); }
-  else if (preset === 'tri') {
-    const q = Math.floor(m/3); _fcStart = _firstDay(y,q*3); _fcEnd = _firstDay(y,q*3+2);
-  }
-  else if (preset === 'tri-ant') {
-    const q = Math.floor(m/3)-1;
-    const yq = q < 0 ? y-1 : y, qq = q < 0 ? 3 : q;
-    _fcStart = _firstDay(yq,qq*3); _fcEnd = _firstDay(yq,qq*3+2);
-  }
-  else if (preset === 'ano') { _fcStart = _firstDay(y,0); _fcEnd = _firstDay(y,11); }
-  else if (preset === '6m')  { _fcStart = _firstDay(y,m-5); _fcEnd = _firstDay(y,m); }
-  else if (preset === '12m') { _fcStart = _firstDay(y,m-11); _fcEnd = _firstDay(y,m); }
-  // sync inputs
-  const s = document.getElementById('fcDateStart'), e = document.getElementById('fcDateEnd');
-  if (s) s.value = _toYMD(_fcStart);
-  if (e) e.value = _toYMD(_fcEnd);
+  if (preset === 'mes')     { _fcStart=new Date(y,m,1); _fcEnd=new Date(y,m,d); }
+  else if(preset==='mes-ant'){_fcStart=new Date(y,m-1,1);_fcEnd=new Date(y,m,0);}
+  else if(preset==='tri')   {const q=Math.floor(m/3);_fcStart=new Date(y,q*3,1);_fcEnd=new Date(y,m,d);}
+  else if(preset==='tri-ant'){const q=Math.floor(m/3)-1;const yq=q<0?y-1:y,qq=q<0?3:q;_fcStart=new Date(yq,qq*3,1);_fcEnd=new Date(yq,qq*3+3,0);}
+  else if(preset==='ano')   {_fcStart=new Date(y,0,1);_fcEnd=new Date(y,m,d);}
+  else if(preset==='6m')    {_fcStart=new Date(y,m-5,1);_fcEnd=new Date(y,m,d);}
+  else if(preset==='12m')   {_fcStart=new Date(y,m-11,1);_fcEnd=new Date(y,m,d);}
   _fcHighlightPreset();
+  _fcUpdateCalBtn();
   renderOrcamento();
 }
 
@@ -1848,13 +1879,164 @@ function fcApplyRange() {
 
 function _fcInitRange() {
   const now = new Date();
-  _fcStart = _firstDay(now.getFullYear(), now.getMonth()-11);
-  _fcEnd   = _firstDay(now.getFullYear(), now.getMonth());
-  const s = document.getElementById('fcDateStart'), e = document.getElementById('fcDateEnd');
-  if (s) s.value = _toYMD(_fcStart);
-  if (e) e.value = _toYMD(_fcEnd);
+  _fcStart = new Date(now.getFullYear(), now.getMonth(), 1); // 1º do mês atual
+  _fcEnd   = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // hoje
+  _fcPreset = 'mes';
   _fcHighlightPreset();
+  _fcUpdateCalBtn();
 }
+
+function _fcUpdateCalBtn() {
+  const el = document.getElementById('fcCalLabel');
+  if (!el) return;
+  const fmt = d => d ? d.toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+  el.textContent = _fcStart && _fcEnd ? `${fmt(_fcStart)} → ${fmt(_fcEnd)}` : 'Selecionar período';
+}
+
+// ── Calendário visual ──
+let _calPickStart = null, _calPickEnd = null, _calPickStep = 0; // 0=nenhum,1=escolhendo início,2=escolhendo fim
+let _calViewYear = null, _calViewMonth = null;
+
+function fcOpenCal() {
+  const now = new Date();
+  _calPickStart = _fcStart ? new Date(_fcStart) : null;
+  _calPickEnd   = _fcEnd   ? new Date(_fcEnd)   : null;
+  _calPickStep  = 0;
+  _calViewYear  = now.getFullYear();
+  _calViewMonth = now.getMonth();
+  _fcBuildMonthShortcuts();
+  _fcBuildYearBtns();
+  _fcRenderCals();
+  document.getElementById('modalFcCal').style.display = 'flex';
+}
+
+function fcCalConfirm() {
+  if (_calPickStart && _calPickEnd) {
+    if (_calPickStart > _calPickEnd) { const t=_calPickStart; _calPickStart=_calPickEnd; _calPickEnd=t; }
+    _fcStart = new Date(_calPickStart); _fcEnd = new Date(_calPickEnd);
+    _fcPreset = '';
+    _fcHighlightPreset();
+    _fcUpdateCalBtn();
+    renderOrcamento();
+  }
+  document.getElementById('modalFcCal').style.display = 'none';
+}
+
+function fcCalPreset(p) {
+  const now = new Date();
+  const y=now.getFullYear(), m=now.getMonth(), d=now.getDate();
+  const dow = now.getDay(); // 0=dom
+  if (p==='hoje')       { _calPickStart=new Date(y,m,d); _calPickEnd=new Date(y,m,d); }
+  else if(p==='ontem')  { _calPickStart=new Date(y,m,d-1); _calPickEnd=new Date(y,m,d-1); }
+  else if(p==='semana') { const s=new Date(y,m,d-dow); _calPickStart=s; _calPickEnd=new Date(y,m,d+(6-dow)); }
+  else if(p==='semana-ant') { const s=new Date(y,m,d-dow-7); _calPickStart=s; _calPickEnd=new Date(y,m,d-dow-1); }
+  else if(p==='mes')    { _calPickStart=new Date(y,m,1); _calPickEnd=new Date(y,m+1,0); }
+  else if(p==='mes-ant'){ _calPickStart=new Date(y,m-1,1); _calPickEnd=new Date(y,m,0); }
+  else if(p==='prox-mes'){ _calPickStart=new Date(y,m+1,1); _calPickEnd=new Date(y,m+2,0); }
+  else if(p==='este-tri'){const q=Math.floor(m/3);_calPickStart=new Date(y,q*3,1);_calPickEnd=new Date(y,q*3+3,0);}
+  else if(p==='tri-ant'){const q=Math.floor(m/3)-1;const yq=q<0?y-1:y,qq=q<0?3:q;_calPickStart=new Date(yq,qq*3,1);_calPickEnd=new Date(yq,qq*3+3,0);}
+  // highlight atalho ativo
+  document.querySelectorAll('.fccp').forEach(el=>el.classList.remove('active'));
+  const el=document.getElementById('fccp-'+p); if(el) el.classList.add('active');
+  _calPickStep=0;
+  // navegar ao mês do início
+  if(_calPickStart){_calViewYear=_calPickStart.getFullYear();_calViewMonth=_calPickStart.getMonth();}
+  _fcRenderCals();
+}
+
+function _fcBuildMonthShortcuts() {
+  const now = new Date();
+  const mNames=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  let html='';
+  for(let i=0;i<12;i++){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    html+=`<div class="fccp" onclick="_fcCalGotoMonth(${d.getFullYear()},${d.getMonth()})">${mNames[d.getMonth()].slice(0,3)+' '+d.getFullYear()}</div>`;
+  }
+  document.getElementById('fcCalMonthShortcuts').innerHTML=html;
+}
+
+function _fcBuildYearBtns() {
+  const now = new Date();
+  let html='';
+  for(let y=now.getFullYear()-2;y<=now.getFullYear()+1;y++){
+    html+=`<button onclick="_fcCalGotoYear(${y})" class="btn btn-ghost" style="padding:4px 12px;font-size:12px">${y}</button>`;
+  }
+  document.getElementById('fcCalYearBtns').innerHTML=html;
+}
+
+function _fcCalGotoMonth(y,m){ _calViewYear=y; _calViewMonth=m; _fcRenderCals(); }
+function _fcCalGotoYear(y){ _calViewYear=y; _fcRenderCals(); }
+
+function _fcRenderCals() {
+  const days=['Do','Se','Te','Qu','Qu','Se','Sa'];
+  const mNames=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  const MNames=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  document.getElementById('fcCalMonthTitle').textContent =
+    `${MNames[_calViewMonth]} de ${_calViewYear}`;
+
+  function buildCal(y,m) {
+    const first = new Date(y,m,1).getDay(); // 0=dom
+    const daysInMonth = new Date(y,m+1,0).getDate();
+    const daysInPrev  = new Date(y,m,0).getDate();
+    let html=`<div><div style="font-size:13px;font-weight:700;color:var(--text-2);margin-bottom:8px;text-align:center">${MNames[m].slice(0,3)+'. de '+y}</div>`;
+    html+=`<div style="display:grid;grid-template-columns:repeat(7,32px);gap:2px;justify-content:center">`;
+    days.forEach(d=>html+=`<div style="width:32px;height:24px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--text-3)">${d}</div>`);
+    // prev month days
+    for(let i=0;i<first;i++){
+      const day=daysInPrev-first+1+i;
+      html+=`<div class="fc-cal-day other-month">${day}</div>`;
+    }
+    for(let day=1;day<=daysInMonth;day++){
+      const dt=new Date(y,m,day); dt.setHours(0,0,0,0);
+      const isToday=dt.getTime()===today.getTime();
+      const isStart=_calPickStart&&dt.getTime()===new Date(_calPickStart).setHours(0,0,0,0);
+      const isEnd=_calPickEnd&&dt.getTime()===new Date(_calPickEnd).setHours(0,0,0,0);
+      const inRange=_calPickStart&&_calPickEnd&&dt>_calPickStart&&dt<_calPickEnd;
+      let cls='fc-cal-day';
+      if(isStart||isEnd) cls+=' range-start';
+      else if(inRange) cls+=' in-range';
+      if(isToday) cls+=' today';
+      html+=`<div class="${cls}" onclick="_fcCalClick(${y},${m},${day})">${day}</div>`;
+    }
+    // next month padding
+    const total=first+daysInMonth; const rem=total%7===0?0:7-total%7;
+    for(let i=1;i<=rem;i++) html+=`<div class="fc-cal-day other-month">${i}</div>`;
+    html+=`</div></div>`;
+    return html;
+  }
+
+  // Mostrar 2 meses
+  const m1y=_calViewYear,m1m=_calViewMonth;
+  const m2=new Date(m1y,m1m+1,1);
+  let html=`<div style="cursor:pointer;padding:4px 8px;border-radius:8px;background:var(--surface2)" onclick="_fcCalPrev()">‹</div>`;
+  html+=buildCal(m1y,m1m)+buildCal(m2.getFullYear(),m2.getMonth());
+  html+=`<div style="cursor:pointer;padding:4px 8px;border-radius:8px;background:var(--surface2);align-self:flex-start" onclick="_fcCalNext()">›</div>`;
+  document.getElementById('fcCalGrids').innerHTML=html;
+}
+
+function _fcCalPrev(){ const d=new Date(_calViewYear,_calViewMonth-1,1);_calViewYear=d.getFullYear();_calViewMonth=d.getMonth();_fcRenderCals(); }
+function _fcCalNext(){ const d=new Date(_calViewYear,_calViewMonth+1,1);_calViewYear=d.getFullYear();_calViewMonth=d.getMonth();_fcRenderCals(); }
+
+function _fcCalClick(y,m,day){
+  const clicked=new Date(y,m,day);clicked.setHours(0,0,0,0);
+  if(_calPickStep===0||(_calPickStart&&_calPickEnd)){
+    _calPickStart=clicked;_calPickEnd=null;_calPickStep=1;
+  } else if(_calPickStep===1){
+    if(clicked<_calPickStart){_calPickEnd=_calPickStart;_calPickStart=clicked;}
+    else _calPickEnd=clicked;
+    _calPickStep=2;
+  }
+  document.querySelectorAll('.fccp').forEach(el=>el.classList.remove('active'));
+  _fcRenderCals();
+}
+
+// Fechar modal clicando fora
+document.addEventListener('click', e=>{
+  const modal=document.getElementById('modalFcCal');
+  if(modal&&e.target===modal) modal.style.display='none';
+});
 
 // ── CSS helpers for sheet cells ──
 const _shCell = (content, opts={}) => {
@@ -1885,38 +2067,67 @@ function renderOrcamento() {
   const ML = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   const MLfull = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
-  // Montar buckets entre _fcStart e _fcEnd
+  // Normalizar datas (sem horas)
+  const dtStart = new Date(_fcStart); dtStart.setHours(0,0,0,0);
+  const dtEnd   = new Date(_fcEnd);   dtEnd.setHours(23,59,59,999);
+  const today   = new Date(); today.setHours(0,0,0,0);
+
+  // Granularidade automática
+  const diffDays = Math.round((dtEnd - dtStart) / 86400000);
+  const granularity = diffDays <= 31 ? 'day' : diffDays <= 90 ? 'week' : 'month';
+
+  // Montar buckets
   const buckets = [];
-  let cur = new Date(_fcStart.getFullYear(), _fcStart.getMonth(), 1);
-  const end = new Date(_fcEnd.getFullYear(), _fcEnd.getMonth(), 1);
-  while (cur <= end) {
-    buckets.push({ year: cur.getFullYear(), month: cur.getMonth(), label: ML[cur.getMonth()] + '/' + String(cur.getFullYear()).slice(2), fullLabel: MLfull[cur.getMonth()] + ' ' + cur.getFullYear() });
-    cur = new Date(cur.getFullYear(), cur.getMonth()+1, 1);
+  if (granularity === 'day') {
+    let cur = new Date(dtStart);
+    while (cur <= dtEnd) {
+      const y=cur.getFullYear(),m=cur.getMonth(),d=cur.getDate();
+      buckets.push({ dateKey: `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`,
+        label: `${String(d).padStart(2,'0')}/${String(m+1).padStart(2,'0')}`,
+        fullLabel: cur.toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'}),
+        gran:'day', year:y, month:m, day:d });
+      cur = new Date(y,m,d+1);
+    }
+  } else if (granularity === 'week') {
+    let cur = new Date(dtStart);
+    while (cur <= dtEnd) {
+      const wEnd = new Date(cur); wEnd.setDate(wEnd.getDate()+6);
+      if (wEnd > dtEnd) wEnd.setTime(dtEnd.getTime());
+      const key = `${cur.getFullYear()}-W${String(cur.getDate()).padStart(2,'0')}`;
+      buckets.push({ dateKey: key, label: `${cur.getDate()}/${cur.getMonth()+1}`,
+        fullLabel: `${cur.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})} – ${wEnd.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})}`,
+        gran:'week', wStart: new Date(cur), wEnd: new Date(wEnd) });
+      cur = new Date(cur); cur.setDate(cur.getDate()+7);
+    }
+  } else {
+    let cur = new Date(dtStart.getFullYear(), dtStart.getMonth(), 1);
+    const endM = new Date(dtEnd.getFullYear(), dtEnd.getMonth(), 1);
+    while (cur <= endM) {
+      buckets.push({ year: cur.getFullYear(), month: cur.getMonth(),
+        label: ML[cur.getMonth()] + '/' + String(cur.getFullYear()).slice(2),
+        fullLabel: MLfull[cur.getMonth()] + ' ' + cur.getFullYear(), gran:'month' });
+      cur = new Date(cur.getFullYear(), cur.getMonth()+1, 1);
+    }
   }
 
-  // Saldo inicial do período = total de bancos (valor no início do período considerando as txs antes do range)
+  // Saldo inicial = saldo total dos bancos AGORA (periodos futuros/passados mostram 0)
   const saldoBancosAtual = state.bancos.reduce((s,b) => s+b.saldo, 0);
-  // Ajustar: saldo inicial = saldo atual dos bancos - fluxo das txs dentro do período
-  const txsNoRange = state.transactions.filter(t => {
-    const d = new Date(t.data+'T12:00:00');
-    const bm = d.getFullYear()*12+d.getMonth();
-    const sm = _fcStart.getFullYear()*12+_fcStart.getMonth();
-    const em = _fcEnd.getFullYear()*12+_fcEnd.getMonth();
-    return bm >= sm && bm <= em;
-  });
-  const fluxoNoPeriodo = txsNoRange.reduce((s,t) => s + (t.tipo==='income' ? t.valor : -t.valor), 0);
-  const saldoInicial = saldoBancosAtual - fluxoNoPeriodo;
+  // Se período começa hoje ou depois → usa saldo real; senão → 0
+  const saldoInicial = dtStart <= today ? saldoBancosAtual : 0;
 
-  const nMeses = buckets.length;
-  const labelPeriodo = nMeses === 1
+  const nBuckets = buckets.length;
+  const labelPeriodo = nBuckets === 1
     ? buckets[0].fullLabel
     : `${buckets[0].fullLabel} → ${buckets[buckets.length-1].fullLabel}`;
-  document.getElementById('fcPeriodoLabel').textContent = `${nMeses} ${nMeses===1?'mês':'meses'} · ${labelPeriodo}`;
+  const nStr = granularity==='day'?`${nBuckets} ${nBuckets===1?'dia':'dias'}`:granularity==='week'?`${nBuckets} sem.`:`${nBuckets} ${nBuckets===1?'mês':'meses'}`;
+  document.getElementById('fcPeriodoLabel').textContent = `${nStr} · ${labelPeriodo}`;
 
-  // Agregar transações por mês
+  // Agregar transações por bucket
   const meses = buckets.map(b => {
     const txs = state.transactions.filter(t => {
-      const d = new Date(t.data + 'T12:00:00');
+      const d = new Date(t.data + 'T12:00:00'); d.setHours(0,0,0,0);
+      if (b.gran === 'day') return t.data === b.dateKey;
+      if (b.gran === 'week') return d >= b.wStart && d <= b.wEnd;
       return d.getFullYear() === b.year && d.getMonth() === b.month;
     });
     const recCats = {}, despCats = {};
