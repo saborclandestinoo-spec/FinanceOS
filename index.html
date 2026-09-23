@@ -834,14 +834,17 @@ svg { display: block; }
         <div class="card">
           <div class="card-header">
             <span class="card-title">Carteira de Ações</span>
-            <button class="topbar-btn primary" onclick="openModalBolsa()">+ Adicionar Ativo</button>
+            <div style="display:flex;gap:8px">
+              <button class="topbar-btn" onclick="clearAllBolsa()" style="color:var(--red);border:1px solid var(--red-dim);background:none">🗑 Zerar</button>
+              <button class="topbar-btn primary" onclick="openModalBolsa()">+ Adicionar Ativo</button>
+            </div>
           </div>
           <div style="overflow-x:auto">
             <table class="inv-table" style="min-width:600px">
               <thead><tr>
                 <th>Ticker</th><th>Nome</th><th>Qtd</th>
                 <th>Preço Médio</th><th>Preço Atual</th>
-                <th>Total</th><th>Variação</th>
+                <th>Total</th><th>Variação</th><th></th>
               </tr></thead>
               <tbody id="bolsaBody"></tbody>
             </table>
@@ -1064,7 +1067,8 @@ svg { display: block; }
 <!-- MODAL Banco -->
 <div class="modal-overlay" id="modalBanco" style="display:none" onclick="closeOnBg(event)">
   <div class="modal">
-    <div class="modal-title">Adicionar Conta Bancária</div>
+    <div class="modal-title" id="modalBancoTitle">Adicionar Conta Bancária</div>
+    <input type="hidden" id="bn-edit-idx" value="-1">
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Banco</label>
@@ -1084,9 +1088,15 @@ svg { display: block; }
         <option value="Digital">Conta Digital</option>
       </select>
     </div>
-    <div class="form-group">
-      <label class="form-label">Saldo Atual (R$)</label>
-      <input class="form-input" id="bn-saldo" type="number" step="0.01" placeholder="0,00">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Saldo Inicial (R$)</label>
+        <input class="form-input" id="bn-saldo-inicial" type="number" step="0.01" placeholder="0,00">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Saldo Atual (R$)</label>
+        <input class="form-input" id="bn-saldo" type="number" step="0.01" placeholder="0,00">
+      </div>
     </div>
     <div class="form-group">
       <label class="form-label">Cor / Ícone</label>
@@ -1101,7 +1111,7 @@ svg { display: block; }
     </div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="document.getElementById('modalBanco').style.display='none'">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveBanco()">Adicionar</button>
+      <button class="btn btn-primary" onclick="saveBanco()" id="bn-save-btn">Adicionar</button>
     </div>
   </div>
 </div>
@@ -1545,8 +1555,24 @@ function renderBolsa() {
       <td class="inv-val">${fmtBRL(a.atual)}</td>
       <td class="inv-val">${fmtBRL(total)}</td>
       <td><span class="badge ${dir}">${fmtPct(vp)}</span></td>
+      <td><button onclick="deleteBolsa(${i})" style="background:none;border:none;cursor:pointer;color:var(--text-3);font-size:14px;padding:4px 8px;border-radius:6px" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text-3)'">✕</button></td>
     </tr>`;
-  }).join('');
+  }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--text-3);padding:24px">Nenhum ativo cadastrado</td></tr>';
+}
+
+function deleteBolsa(idx) {
+  state.bolsa.splice(idx, 1);
+  saveState();
+  renderBolsa();
+  renderDashboard();
+}
+
+function clearAllBolsa() {
+  if (!confirm('Zerar toda a carteira de ações?')) return;
+  state.bolsa = [];
+  saveState();
+  renderBolsa();
+  renderDashboard();
 }
 
 // ── SPARKLINE ──
@@ -1647,16 +1673,22 @@ function renderBancos() {
   const bancosIcons = { 'Corrente':'🏦', 'Poupança':'🐷', 'Investimento':'📈', 'Digital':'📱' };
   document.getElementById('bancoGrid').innerHTML = state.bancos.map((b, idx) => {
     const icon = bancosIcons[b.tipo] || '🏦';
-    return `<div class="banco-card">
-      <button class="banco-delete" onclick="deleteBanco(${idx})" title="Remover">✕</button>
+    const saldoInicial = b.saldoInicial != null ? b.saldoInicial : b.saldo;
+    const variacao = b.saldo - saldoInicial;
+    return `<div class="banco-card" style="position:relative">
+      <div style="position:absolute;top:10px;right:10px;display:flex;gap:4px">
+        <button onclick="editBanco(${idx})" title="Editar" style="background:none;border:none;cursor:pointer;color:var(--text-3);font-size:13px;padding:3px 7px;border-radius:6px" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--text-3)'">✏️</button>
+        <button class="banco-delete" onclick="deleteBanco(${idx})" title="Remover">✕</button>
+      </div>
       <div class="banco-card-top">
         <div class="banco-icon" style="background:${b.cor}22;color:${b.cor}">${icon}</div>
         <div class="banco-tipo">${b.tipo}</div>
       </div>
       <div class="banco-nome">${b.nome}</div>
       <div class="banco-agencia">Ag. ${b.agencia}</div>
-      <div class="banco-saldo-label">Saldo</div>
+      <div class="banco-saldo-label">Saldo Atual</div>
       <div class="banco-saldo" style="color:${b.saldo>=0?'var(--text)':'var(--red)'}">${fmtBRL(b.saldo)}</div>
+      <div style="font-size:11px;color:var(--text-3);margin-top:4px">Inicial: ${fmtBRL(saldoInicial)} · <span style="color:${variacao>=0?'var(--emerald)':'var(--red)'}">${variacao>=0?'+':''}${fmtBRL(variacao)}</span></div>
     </div>`;
   }).join('') || '<div style="color:var(--text-2);padding:20px;grid-column:1/-1">Nenhuma conta cadastrada</div>';
 }
@@ -1674,9 +1706,10 @@ function renderImoveis() {
   document.getElementById('imovel-renda').textContent = fmtBRL(totalRenda);
   document.getElementById('imovel-count').textContent = state.imoveis.length;
 
-  document.getElementById('imoveisList').innerHTML = state.imoveis.map(im => {
+  document.getElementById('imoveisList').innerHTML = state.imoveis.map((im, idx) => {
     const yield_pct = im.valor > 0 ? (im.aluguel*12/im.valor*100) : 0;
-    return `<div class="imovel-card">
+    return `<div class="imovel-card" style="position:relative">
+      <button onclick="deleteImovel(${idx})" title="Excluir imóvel" style="position:absolute;top:12px;right:12px;background:none;border:none;cursor:pointer;color:var(--text-3);font-size:16px;padding:4px 8px;border-radius:6px;z-index:2" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text-3)'">✕</button>
       <div class="imovel-thumb" style="background:var(--gold-dim)">${im.tipo}</div>
       <div class="imovel-info">
         <div class="imovel-name">${im.nome}</div>
@@ -1698,6 +1731,14 @@ function renderImoveis() {
       </div>
     </div>`;
   }).join('') || '<div style="color:var(--text-2);padding:20px">Nenhum imóvel cadastrado</div>';
+}
+
+function deleteImovel(idx) {
+  if (!confirm('Excluir este imóvel?')) return;
+  state.imoveis.splice(idx, 1);
+  saveState();
+  renderImoveis();
+  renderDashboard();
 }
 
 function renderOrcamento() {
@@ -2077,13 +2118,36 @@ function saveBanco() {
   const agencia=document.getElementById('bn-agencia').value.trim();
   const tipo=document.getElementById('bn-tipo').value;
   const saldo=parseFloat(document.getElementById('bn-saldo').value)||0;
+  const saldoInicial=parseFloat(document.getElementById('bn-saldo-inicial').value)||0;
   const cor=document.getElementById('bn-cor').value;
+  const editIdx=parseInt(document.getElementById('bn-edit-idx').value);
   if(!nome||!agencia){alert('Preencha todos os campos');return;}
-  state.bancos.push({ nome, agencia, tipo, saldo, cor });
+  if(editIdx >= 0) {
+    state.bancos[editIdx] = { ...state.bancos[editIdx], nome, agencia, tipo, saldo, saldoInicial, cor };
+  } else {
+    state.bancos.push({ nome, agencia, tipo, saldo, saldoInicial, cor });
+  }
   saveState();
   document.getElementById('modalBanco').style.display='none';
-  ['bn-nome','bn-agencia','bn-saldo'].forEach(id=>document.getElementById(id).value='');
+  ['bn-nome','bn-agencia','bn-saldo','bn-saldo-inicial'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('bn-edit-idx').value='-1';
+  document.getElementById('modalBancoTitle').textContent='Adicionar Conta Bancária';
+  document.getElementById('bn-save-btn').textContent='Adicionar';
   renderBancos();
+}
+
+function editBanco(idx) {
+  const b = state.bancos[idx];
+  document.getElementById('bn-nome').value = b.nome;
+  document.getElementById('bn-agencia').value = b.agencia;
+  document.getElementById('bn-tipo').value = b.tipo;
+  document.getElementById('bn-saldo').value = b.saldo;
+  document.getElementById('bn-saldo-inicial').value = b.saldoInicial != null ? b.saldoInicial : b.saldo;
+  document.getElementById('bn-cor').value = b.cor;
+  document.getElementById('bn-edit-idx').value = idx;
+  document.getElementById('modalBancoTitle').textContent = 'Editar Conta Bancária';
+  document.getElementById('bn-save-btn').textContent = 'Salvar';
+  document.getElementById('modalBanco').style.display = 'flex';
 }
 
 function saveImovel() {
