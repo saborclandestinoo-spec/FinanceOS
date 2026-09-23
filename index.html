@@ -1108,9 +1108,13 @@ svg { display: block; }
         <input class="form-input" id="bn-saldo-inicial" type="number" step="0.01" placeholder="0,00">
       </div>
       <div class="form-group">
-        <label class="form-label">Saldo Atual (R$)</label>
-        <input class="form-input" id="bn-saldo" type="number" step="0.01" placeholder="0,00">
+        <label class="form-label">Data do Saldo Inicial</label>
+        <input class="form-input" id="bn-data-inicial" type="date">
       </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Saldo Atual (R$)</label>
+      <input class="form-input" id="bn-saldo" type="number" step="0.01" placeholder="0,00">
     </div>
     <div class="form-group">
       <label class="form-label">Cor / Ícone</label>
@@ -1719,7 +1723,9 @@ function renderBancos() {
       <div class="banco-agencia">Ag. ${b.agencia}</div>
       <div class="banco-saldo-label">Saldo Atual</div>
       <div class="banco-saldo" style="color:${b.saldo>=0?'var(--text)':'var(--red)'}">${fmtBRL(b.saldo)}</div>
-      <div style="font-size:11px;color:var(--text-3);margin-top:4px">Inicial: ${fmtBRL(saldoInicial)} · <span style="color:${variacao>=0?'var(--emerald)':'var(--red)'}">${variacao>=0?'+':''}${fmtBRL(variacao)}</span></div>
+      <div style="font-size:11px;color:var(--text-3);margin-top:4px">
+        ${b.dataInicial ? `Desde ${new Date(b.dataInicial+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'})} · ` : ''}Inicial: ${fmtBRL(saldoInicial)} · <span style="color:${variacao>=0?'var(--emerald)':'var(--red)'}">${variacao>=0?'+':''}${fmtBRL(variacao)}</span>
+      </div>
     </div>`;
   }).join('') || '<div style="color:var(--text-2);padding:20px;grid-column:1/-1">Nenhuma conta cadastrada</div>';
 }
@@ -2339,17 +2345,18 @@ function saveBanco() {
   const tipo=document.getElementById('bn-tipo').value;
   const saldo=parseFloat(document.getElementById('bn-saldo').value)||0;
   const saldoInicial=parseFloat(document.getElementById('bn-saldo-inicial').value)||0;
+  const dataInicial=document.getElementById('bn-data-inicial').value||'';
   const cor=document.getElementById('bn-cor').value;
   const editIdx=parseInt(document.getElementById('bn-edit-idx').value);
   if(!nome||!agencia){alert('Preencha todos os campos');return;}
   if(editIdx >= 0) {
-    state.bancos[editIdx] = { ...state.bancos[editIdx], nome, agencia, tipo, saldo, saldoInicial, cor };
+    state.bancos[editIdx] = { ...state.bancos[editIdx], nome, agencia, tipo, saldo, saldoInicial, dataInicial, cor };
   } else {
-    state.bancos.push({ nome, agencia, tipo, saldo, saldoInicial, cor });
+    state.bancos.push({ nome, agencia, tipo, saldo, saldoInicial, dataInicial, cor });
   }
   saveState();
   document.getElementById('modalBanco').style.display='none';
-  ['bn-nome','bn-agencia','bn-saldo','bn-saldo-inicial'].forEach(id=>document.getElementById(id).value='');
+  ['bn-nome','bn-agencia','bn-saldo','bn-saldo-inicial','bn-data-inicial'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('bn-edit-idx').value='-1';
   document.getElementById('modalBancoTitle').textContent='Adicionar Conta Bancária';
   document.getElementById('bn-save-btn').textContent='Adicionar';
@@ -2363,6 +2370,7 @@ function editBanco(idx) {
   document.getElementById('bn-tipo').value = b.tipo;
   document.getElementById('bn-saldo').value = b.saldo;
   document.getElementById('bn-saldo-inicial').value = b.saldoInicial != null ? b.saldoInicial : b.saldo;
+  document.getElementById('bn-data-inicial').value = b.dataInicial || '';
   document.getElementById('bn-cor').value = b.cor;
   document.getElementById('bn-edit-idx').value = idx;
   document.getElementById('modalBancoTitle').textContent = 'Editar Conta Bancária';
