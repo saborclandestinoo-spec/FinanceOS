@@ -869,8 +869,9 @@ svg { display: block; }
           </div>
         </div>
         <div class="crypto-grid" id="cryptoGrid"></div>
-        <div class="card" style="text-align:center;padding:20px">
+        <div class="card" style="text-align:center;padding:20px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
           <button class="btn btn-primary" onclick="openModalCripto()">+ Adicionar Criptomoeda</button>
+          <button class="btn btn-ghost" onclick="clearAllCripto()" style="color:var(--red);border-color:var(--red-dim)">🗑 Zerar tudo</button>
         </div>
       </div>
 
@@ -1583,7 +1584,7 @@ function renderCripto() {
   lucroEl.className = 'kpi-delta ' + (lucro>=0?'up':'down');
   lucroEl.textContent = (lucro>=0?'↑ Ganho: ':'↓ Perda: ') + fmtBRL(Math.abs(lucro));
 
-  document.getElementById('cryptoGrid').innerHTML = state.cripto.map(c => {
+  document.getElementById('cryptoGrid').innerHTML = state.cripto.map((c, idx) => {
     const capitalAtual = c.qtd * c.atual;
     const capitalInvest = c.qtd * c.preco;
     const lucroCard = capitalAtual - capitalInvest;
@@ -1591,7 +1592,8 @@ function renderCripto() {
     const isUp = vp >= 0;
     const clr = isUp ? 'var(--emerald)' : 'var(--red)';
     const sp = makeSparkline(c.color || clr, isUp);
-    return `<div class="crypto-card">
+    return `<div class="crypto-card" style="position:relative">
+      <button onclick="deleteCripto(${idx})" title="Remover" style="position:absolute;top:10px;right:10px;background:none;border:none;cursor:pointer;color:var(--text-3);font-size:16px;line-height:1;padding:2px 6px;border-radius:6px" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text-3)'">✕</button>
       <div class="crypto-header">
         <div class="crypto-symbol" style="background:${c.color || '#333'}22;color:${c.color || '#6C63FF'}">${c.symbol.charAt(0)}</div>
         <div>
@@ -1614,7 +1616,22 @@ function renderCripto() {
       </div>
       <div class="crypto-holding" style="margin-top:8px">Resultado: <span style="color:${clr}">${lucroCard>=0?'+':''}${fmtBRL(lucroCard)}</span></div>
     </div>`;
-  }).join('');
+  }).join('') || '<div style="color:var(--text-3);padding:32px;text-align:center;grid-column:1/-1">Nenhuma criptomoeda cadastrada. Clique em "Adicionar" para começar.</div>';
+}
+
+function deleteCripto(idx) {
+  state.cripto.splice(idx, 1);
+  saveState();
+  renderCripto();
+  renderDashboard();
+}
+
+function clearAllCripto() {
+  if (!confirm('Zerar todas as criptomoedas?')) return;
+  state.cripto = [];
+  saveState();
+  renderCripto();
+  renderDashboard();
 }
 
 function renderBancos() {
