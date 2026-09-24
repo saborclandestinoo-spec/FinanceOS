@@ -902,54 +902,66 @@ svg { display: block; }
 
       <!-- ── CRIPTO ── -->
       <div class="page" id="page-cripto">
-        <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
-          <div class="kpi-card">
-            <div class="kpi-label">Portfólio Cripto</div>
-            <div class="kpi-value" id="cripto-total">R$ 0</div>
-            <span class="kpi-delta up" id="cripto-delta">↑ 0%</span>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">Capital Investido</div>
-            <div class="kpi-value" id="cripto-custo">R$ 0</div>
-            <span class="kpi-delta up" id="cripto-lucro-abs"></span>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">Variação 24h</div>
-            <div class="kpi-value" id="cripto-count">0</div>
-            <span class="kpi-delta up" id="cripto-var24h">aguardando cotação…</span>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">Moedas</div>
-            <div class="kpi-value" id="cripto-num">0</div>
-            <span class="kpi-delta up">Criptoativos</span>
-          </div>
-        </div>
-        <div class="crypto-grid" id="cryptoGrid"></div>
-        <div class="card" style="text-align:center;padding:20px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
-          <button class="btn btn-primary" onclick="openModalCripto()">+ Adicionar Criptomoeda</button>
-          <button class="btn btn-ghost" onclick="clearAllCripto()" style="color:var(--red);border-color:var(--red-dim)">🗑 Zerar tudo</button>
+        <!-- Tabs Carteira / Mercado -->
+        <div style="display:flex;gap:0;background:var(--surface2);border-radius:12px;padding:4px;margin-bottom:16px;width:fit-content">
+          <div id="ctab-carteira" onclick="criptoTab('carteira')" style="padding:8px 24px;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer;background:var(--surface);color:var(--accent);box-shadow:0 1px 4px rgba(0,0,0,.08);transition:.15s">💼 Carteira</div>
+          <div id="ctab-mercado"  onclick="criptoTab('mercado')"  style="padding:8px 24px;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer;color:var(--text-2);transition:.15s">📊 Mercado</div>
         </div>
 
-        <!-- MERCADO: Altas e Baixas -->
-        <div class="card" style="padding:20px;margin-top:0">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
-            <div style="font-family:'Sora',sans-serif;font-size:16px;font-weight:700">📊 Mercado — Altas &amp; Baixas</div>
-            <div style="display:flex;gap:6px">
-              <button id="mkt-btn-24h" onclick="renderMercado('24h')" class="btn btn-ghost" style="padding:4px 12px;font-size:12px;background:var(--accent);color:#fff;border-color:var(--accent)">24h</button>
-              <button id="mkt-btn-7d"  onclick="renderMercado('7d')"  class="btn btn-ghost" style="padding:4px 12px;font-size:12px">7 dias</button>
-              <button id="mkt-btn-30d" onclick="renderMercado('30d')" class="btn btn-ghost" style="padding:4px 12px;font-size:12px">30 dias</button>
+        <!-- ── TAB CARTEIRA ── -->
+        <div id="ctab-content-carteira">
+          <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
+            <div class="kpi-card">
+              <div class="kpi-label">Portfólio Cripto</div>
+              <div class="kpi-value" id="cripto-total">R$ 0</div>
+              <span class="kpi-delta up" id="cripto-delta">↑ 0%</span>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Capital Investido</div>
+              <div class="kpi-value" id="cripto-custo">R$ 0</div>
+              <span class="kpi-delta up" id="cripto-lucro-abs"></span>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Variação 24h</div>
+              <div class="kpi-value" id="cripto-count">0</div>
+              <span class="kpi-delta up" id="cripto-var24h">aguardando cotação…</span>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Moedas</div>
+              <div class="kpi-value" id="cripto-num">0</div>
+              <span class="kpi-delta up">Criptoativos</span>
             </div>
           </div>
-          <div id="mercadoPanel" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-            <div style="text-align:center;color:var(--text-3);padding:24px;grid-column:1/-1;font-size:13px">Carregando dados de mercado…</div>
+          <div class="crypto-grid" id="cryptoGrid"></div>
+          <div class="card" style="text-align:center;padding:20px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+            <button class="btn btn-primary" onclick="openModalCripto()">+ Adicionar Criptomoeda</button>
+            <button class="btn btn-ghost" onclick="clearAllCripto()" style="color:var(--red);border-color:var(--red-dim)">🗑 Zerar tudo</button>
           </div>
         </div>
 
-        <!-- SUGESTÕES LONGO PRAZO -->
-        <div class="card" style="padding:20px;margin-top:0">
-          <div style="font-family:'Sora',sans-serif;font-size:16px;font-weight:700;margin-bottom:4px">🧠 Sugestões — Longo Prazo</div>
-          <div style="font-size:12px;color:var(--text-3);margin-bottom:16px">Projetos sólidos com fundamentos robustos. Não é consultoria financeira.</div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px" id="sugestoesGrid"></div>
+        <!-- ── TAB MERCADO ── -->
+        <div id="ctab-content-mercado" style="display:none">
+          <!-- Altas e Baixas -->
+          <div class="card" style="padding:20px;margin-bottom:0">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+              <div style="font-family:'Sora',sans-serif;font-size:16px;font-weight:700">📊 Altas &amp; Baixas</div>
+              <div style="display:flex;gap:6px">
+                <button id="mkt-btn-24h" onclick="renderMercado('24h')" class="btn btn-ghost" style="padding:4px 12px;font-size:12px;background:var(--accent);color:#fff;border-color:var(--accent)">24h</button>
+                <button id="mkt-btn-7d"  onclick="renderMercado('7d')"  class="btn btn-ghost" style="padding:4px 12px;font-size:12px">7 dias</button>
+                <button id="mkt-btn-30d" onclick="renderMercado('30d')" class="btn btn-ghost" style="padding:4px 12px;font-size:12px">30 dias</button>
+              </div>
+            </div>
+            <div id="mercadoPanel" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+              <div style="text-align:center;color:var(--text-3);padding:24px;grid-column:1/-1;font-size:13px">Carregando dados de mercado…</div>
+            </div>
+          </div>
+
+          <!-- Sugestões Longo Prazo -->
+          <div class="card" style="padding:20px;margin-top:0">
+            <div style="font-family:'Sora',sans-serif;font-size:16px;font-weight:700;margin-bottom:4px">🧠 Sugestões — Longo Prazo</div>
+            <div style="font-size:12px;color:var(--text-3);margin-bottom:16px">Projetos sólidos com fundamentos robustos. Não é consultoria financeira.</div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px" id="sugestoesGrid"></div>
+          </div>
         </div>
       </div>
 
@@ -1693,7 +1705,7 @@ function renderPage(id) {
   if (id === 'dashboard') renderDashboard();
   if (id === 'transacoes') { _txFilterTipo=''; renderTxPage(); }
   if (id === 'bolsa') renderBolsa();
-  if (id === 'cripto') { renderCripto(); fetchCriptoPrices(); fetchMercado(); renderSugestoes(); }
+  if (id === 'cripto') { criptoTab('carteira'); renderCripto(); fetchCriptoPrices(); }
   if (id === 'imoveis') renderImoveis();
   if (id === 'bancos') renderBancos();
   if (id === 'orcamento') { if (!_fcStart) _fcInitRange(); renderOrcamento(); }
@@ -3034,6 +3046,27 @@ setInterval(() => {
     fetchCriptoPrices();
   }
 }, 60000);
+
+// ── CRIPTO TABS ──
+function criptoTab(tab) {
+  ['carteira','mercado'].forEach(t => {
+    const btn = document.getElementById('ctab-'+t);
+    const content = document.getElementById('ctab-content-'+t);
+    if (!btn || !content) return;
+    if (t === tab) {
+      btn.style.background = 'var(--surface)';
+      btn.style.color = 'var(--accent)';
+      btn.style.boxShadow = '0 1px 4px rgba(0,0,0,.08)';
+      content.style.display = '';
+    } else {
+      btn.style.background = '';
+      btn.style.color = 'var(--text-2)';
+      btn.style.boxShadow = '';
+      content.style.display = 'none';
+    }
+  });
+  if (tab === 'mercado') { fetchMercado(); renderSugestoes(); }
+}
 
 // ── MERCADO ALTAS/BAIXAS ──
 let _mktData = null;
