@@ -1205,7 +1205,8 @@ svg { display: block; }
 <!-- MODAL Cripto -->
 <div class="modal-overlay" id="modalCripto" style="display:none" onclick="closeOnBg(event)">
   <div class="modal">
-    <div class="modal-title">Adicionar Criptomoeda</div>
+    <div class="modal-title" id="modalCriptoTitle">Adicionar Criptomoeda</div>
+    <input type="hidden" id="c-edit-idx" value="-1">
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Símbolo</label>
@@ -1229,7 +1230,7 @@ svg { display: block; }
     <div id="c-fetch-status" style="font-size:12px;color:var(--text-3);padding:4px 0">O preço atual será buscado automaticamente via CoinGecko.</div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="document.getElementById('modalCripto').style.display='none'">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveCripto()">Adicionar</button>
+      <button class="btn btn-primary" onclick="saveCripto()">Salvar</button>
     </div>
   </div>
 </div>
@@ -1893,8 +1894,8 @@ function renderCripto() {
     const isUp = vp >= 0;
     const clr = isUp ? 'var(--emerald)' : 'var(--red)';
     const sp = makeSparkline(c.color || clr, isUp);
-    return `<div class="crypto-card" style="position:relative">
-      <button onclick="deleteCripto(${idx})" title="Remover" style="position:absolute;top:10px;right:10px;background:none;border:none;cursor:pointer;color:var(--text-3);font-size:16px;line-height:1;padding:2px 6px;border-radius:6px" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text-3)'">✕</button>
+    return `<div class="crypto-card" style="position:relative;cursor:pointer" onclick="editCripto(${idx})">
+      <button onclick="event.stopPropagation();deleteCripto(${idx})" title="Remover" style="position:absolute;top:10px;right:10px;background:none;border:none;cursor:pointer;color:var(--text-3);font-size:16px;line-height:1;padding:2px 6px;border-radius:6px" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text-3)'">✕</button>
       <div class="crypto-header">
         <div class="crypto-symbol" style="background:${c.color || '#333'}22;color:${c.color || '#6C63FF'}">${c.symbol.charAt(0)}</div>
         <div>
@@ -2868,7 +2869,25 @@ function deleteTx(txId) {
 function openModal() { openModalLanc('expense'); }
 function closeModal() { closeModalLanc(); }
 function openModalBolsa() { document.getElementById('modalBolsa').style.display='flex'; }
-function openModalCripto() { document.getElementById('modalCripto').style.display='flex'; }
+function openModalCripto() {
+  document.getElementById('c-edit-idx').value = '-1';
+  document.getElementById('modalCriptoTitle').textContent = 'Adicionar Criptomoeda';
+  ['c-symbol','c-nome','c-qtd','c-preco'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('c-fetch-status').textContent = 'O preço atual será buscado automaticamente via CoinGecko.';
+  document.getElementById('modalCripto').style.display='flex';
+}
+function editCripto(idx) {
+  const c = state.cripto[idx];
+  if (!c) return;
+  document.getElementById('c-edit-idx').value = idx;
+  document.getElementById('modalCriptoTitle').textContent = 'Editar ' + c.nome;
+  document.getElementById('c-symbol').value = c.symbol;
+  document.getElementById('c-nome').value = c.nome;
+  document.getElementById('c-qtd').value = c.qtd;
+  document.getElementById('c-preco').value = c.preco;
+  document.getElementById('c-fetch-status').textContent = `Preço atual: ${fmtBRL(c.atual)} (será atualizado ao salvar)`;
+  document.getElementById('modalCripto').style.display='flex';
+}
 function openModalImovel() { document.getElementById('modalImovel').style.display='flex'; }
 function openModalBanco() { document.getElementById('modalBanco').style.display='flex'; }
 function openModalMeta() {
@@ -2999,16 +3018,20 @@ function saveCripto() {
   const nome=document.getElementById('c-nome').value.trim();
   const qtd=parseFloat(document.getElementById('c-qtd').value);
   const preco=parseFloat(document.getElementById('c-preco').value);
+  const editIdx=parseInt(document.getElementById('c-edit-idx').value);
   if(!symbol||!nome||!qtd||!preco){alert('Preencha Símbolo, Nome, Quantidade e Preço Médio');return;}
-  const colors=['#F7931A','#627EEA','#9945FF','#F3BA2F','#0033AD','#8247E5','#E84142','#26A17B'];
-  const color=colors[state.cripto.length%colors.length];
-  state.cripto.push({ symbol, nome, qtd, preco, atual: preco, color }); // atual=preco until fetch
+  if (editIdx >= 0 && state.cripto[editIdx]) {
+    const old = state.cripto[editIdx];
+    state.cripto[editIdx] = { ...old, symbol, nome, qtd, preco };
+  } else {
+    const colors=['#F7931A','#627EEA','#9945FF','#F3BA2F','#0033AD','#8247E5','#E84142','#26A17B'];
+    const color=colors[state.cripto.length%colors.length];
+    state.cripto.push({ symbol, nome, qtd, preco, atual: preco, color });
+  }
   saveState();
   document.getElementById('modalCripto').style.display='none';
-  ['c-symbol','c-nome','c-qtd','c-preco'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('c-fetch-status').textContent = 'O preço atual será buscado automaticamente via CoinGecko.';
   renderCripto();
-  fetchCriptoPrices(); // fetch immediately after add
+  fetchCriptoPrices();
 }
 
 function saveBanco() {
